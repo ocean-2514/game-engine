@@ -10,6 +10,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(MY_ENGINE_SRC
     src/main.cpp
     src/Game.cpp
+    src/TestObject.cpp
     include/Game.h
 )
 

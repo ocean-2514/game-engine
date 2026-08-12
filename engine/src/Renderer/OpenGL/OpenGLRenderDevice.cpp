@@ -2,6 +2,7 @@
 
 #include "Platform/Window.h"
 #include "Renderer/OpenGL/OpenGLShaderProgram.h"
+#include "Renderer/OpenGL/OpenGLMesh.h"
 
 #include <fstream>
 #include <iostream>
@@ -26,6 +27,31 @@ bool OpenGLRenderDevice::Init(const Window& window) {
         std::cout << "OpenGLRenderDevice::Init: failed to initialize GLAD\n";
     }
     return loaded;
+}
+
+void OpenGLRenderDevice::Clear(const ClearDesc& desc) {
+    GLbitfield mask = 0;
+
+    if (HasClearBuffer(desc.buffers, ClearBuffer::Color)) {
+        glClearColor(
+            desc.color.red,
+            desc.color.green,
+            desc.color.blue,
+            desc.color.alpha);
+        mask |= GL_COLOR_BUFFER_BIT;
+    }
+    if (HasClearBuffer(desc.buffers, ClearBuffer::Depth)) {
+        glClearDepth(static_cast<GLdouble>(desc.depth));
+        mask |= GL_DEPTH_BUFFER_BIT;
+    }
+    if (HasClearBuffer(desc.buffers, ClearBuffer::Stencil)) {
+        glClearStencil(static_cast<GLint>(desc.stencil));
+        mask |= GL_STENCIL_BUFFER_BIT;
+    }
+
+    if (mask != 0) {
+        glClear(mask);
+    }
 }
 
 GLuint OpenGLRenderDevice::CreateShader(const std::string& path, GLenum type) const {
@@ -107,6 +133,14 @@ std::shared_ptr<ShaderProgram> OpenGLRenderDevice::CreateShaderProgram(
     return program != 0
         ? std::make_shared<OpenGLShaderProgram>(program)
         : nullptr;
+}
+
+std::shared_ptr<Mesh> OpenGLRenderDevice::CreateMesh(
+    const VertexLayout& layout,
+    const std::vector<float>& vertices,
+    const std::vector<uint32_t>& indices) {
+    auto mesh = std::make_shared<OpenGLMesh>(layout, vertices, indices);
+    return mesh->IsValid() ? std::move(mesh) : nullptr;
 }
 
 } // namespace eng

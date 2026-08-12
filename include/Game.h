@@ -10,6 +10,14 @@ public:
     void Update(float deltaTime) override;
 
     void Destroy() override;
+
+    std::shared_ptr<eng::Mesh> mesh;
+    std::shared_ptr<eng::Material> material;
+    eng::Scene scene;
+
+private:
+    float xoffset = 0.0f;
+    float yoffset = 0.0f;
 };
 
 #endif

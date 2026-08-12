@@ -2,12 +2,9 @@
 #define O_INPUT_MANAGER
 
 #include <array>
+#include "Input/Key.h"
 
 namespace eng {
-
-enum class Key : int {
-    A = 65
-};
     
 class InputManager
 {
@@ -24,7 +21,7 @@ public:
     bool IsKeyPressed(Key key);
 
 private:
-    std::array<bool, 256> m_keys = { false };
+    std::array<bool, 512> m_keys = { false };
 
     friend class Engine;
 };

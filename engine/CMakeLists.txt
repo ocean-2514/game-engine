@@ -30,6 +30,21 @@ set(ENGINE_SRC
     src/Renderer/OpenGL/OpenGLRenderDevice.h
     src/Renderer/OpenGL/OpenGLShaderProgram.cpp
     src/Renderer/OpenGL/OpenGLShaderProgram.h
+    src/Renderer/Material.cpp
+    src/Renderer/Material.h
+    src/Renderer/Mesh.cpp
+    src/Renderer/Mesh.h
+    src/Renderer/OpenGL/OpenGLMesh.cpp
+    src/Renderer/OpenGL/OpenGLMesh.h
+    src/Graphics/VertexLayout.cpp
+    src/Graphics/VertexLayout.h
+    src/Graphics/Clear.h
+    src/Renderer/RenderQueue.cpp
+    src/Renderer/RenderQueue.h
+    src/Scene/Scene.cpp
+    src/Scene/Scene.h
+    src/Scene/GameObject.cpp
+    src/Scene/GameObject.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

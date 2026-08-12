@@ -6,6 +6,7 @@
 
 #include "Input/InputManager.h"
 #include "Renderer/RenderDevice.h"
+#include "Renderer/RenderQueue.h"
 
 namespace eng {
 
@@ -28,15 +29,16 @@ public:
     void SetApplication(Application* app);
     Application* GetApplication();
     InputManager& GetInputManager();
-    Window& GetWindow();
+    Window* GetWindow();
     RenderDevice& GetRenderDevice();
-    
+    RenderQueue& GetRenderQueue();
     
 private:
     std::unique_ptr<Application> m_application;
     std::unique_ptr<Window> m_window;
     std::unique_ptr<RenderDevice> m_renderDevice;
     InputManager m_inputManager;
+    RenderQueue m_renderQueue;
     
 
     std::chrono::system_clock::time_point m_lastTimePoint;

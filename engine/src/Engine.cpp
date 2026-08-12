@@ -66,6 +66,9 @@ void Engine::Run() {
         m_lastTimePoint = currentTimePoint;
 
         m_application->Update(deltaTime);
+
+        m_renderQueue.Execute();
+
         m_window->SwapBuffers();
     }
 }
@@ -78,6 +81,8 @@ void Engine::Destroy() {
 
     // GPU resources owned by the application and device must die while the
     // window's OpenGL context is still alive.
+    m_renderQueue.Clear();
+    m_renderQueue.InvalidateStateCache();
     m_renderDevice.reset();
     m_window.reset();
 }
@@ -94,12 +99,16 @@ InputManager& Engine::GetInputManager() {
     return m_inputManager;
 }
 
-Window& Engine::GetWindow() {
-    return *m_window;
+Window* Engine::GetWindow() {
+    return m_window.get();
 }
 
 RenderDevice& Engine::GetRenderDevice() {
     return *m_renderDevice;
+}
+
+RenderQueue& Engine::GetRenderQueue() {
+    return m_renderQueue;
 }
 
 Engine::~Engine() {
