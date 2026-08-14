@@ -25,8 +25,11 @@ bool OpenGLRenderDevice::Init(const Window& window) {
 
     if (!loaded) {
         std::cout << "OpenGLRenderDevice::Init: failed to initialize GLAD\n";
+        return false;
     }
-    return loaded;
+
+    glEnable(GL_DEPTH_TEST);
+    return true;
 }
 
 void OpenGLRenderDevice::Clear(const ClearDesc& desc) {

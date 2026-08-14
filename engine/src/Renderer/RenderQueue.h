@@ -11,7 +11,6 @@ namespace eng {
 class Material;
 class Mesh;
 class ShaderProgram;
-
 struct RenderCommand {
     RenderCommand(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material, 
         const glm::mat4& modelMatrix);
@@ -21,11 +20,21 @@ struct RenderCommand {
     glm::mat4 modelMatrix;
 };
 
+struct CameraData {
+    glm::mat4 view{1.0f};
+    glm::mat4 projection{1.0f};
+};
+
 class RenderQueue {
 public:
+
+    bool BeginView(const CameraData& camera);
     void Submit(RenderCommand command);
+    void EndView();
     void Execute();
     void Clear();
+
+
 
     // Call this after changing graphics state outside RenderQueue.
     void InvalidateStateCache();
@@ -34,6 +43,11 @@ private:
     struct QueuedCommand {
         RenderCommand command;
         uint64_t materialRevision;
+    };
+
+    struct RenderView {
+        CameraData camera;
+        std::vector<QueuedCommand> commands;
     };
 
     struct ShaderState {
@@ -45,9 +59,10 @@ private:
     ShaderState& GetShaderState(const std::shared_ptr<ShaderProgram>& shader);
     static bool IsValid(const RenderCommand& command);
 
-    std::vector<QueuedCommand> m_commands;
     std::vector<ShaderState> m_shaderStates;
     std::weak_ptr<ShaderProgram> m_currentShader;
+    std::vector<std::unique_ptr<RenderView>> m_views;
+    RenderView* m_currentView = nullptr;
 };
 
 } // namespace eng

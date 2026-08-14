@@ -10,6 +10,37 @@ void GameObject::UpdateTree(float deltaTime) {
         return;
     }
 
+    m_isTraversingComponents = true;
+    {
+        struct TraversalGuard {
+            bool& traversing;
+            ~TraversalGuard() { traversing = false; }
+        } guard{m_isTraversingComponents};
+
+        for (auto it = m_components.begin(); it != m_components.end();) {
+            if ((*it)->IsAlive()) {
+                (*it)->OnUpdate(deltaTime);
+            }
+
+            if ((*it)->IsAlive()) {
+                ++it;
+            } else {
+                it = m_components.erase(it);
+            }
+
+            if (!m_isAlive) {
+                break;
+            }
+        }
+
+
+    }
+
+    if (!m_isAlive) {
+        return;
+    }
+    FlushPendingCommands();
+
     for (auto it = m_children.begin(); it != m_children.end();) {
         GameObject& child = **it;
         if (child.IsAlive()) {
@@ -20,6 +51,47 @@ void GameObject::UpdateTree(float deltaTime) {
             ++it;
         } else {
             it = m_children.erase(it);
+        }
+    }
+}
+
+void GameObject::RenderTree(RenderQueue& queue) {
+    if (!m_isAlive) {
+        return;
+    }
+
+    m_isTraversingComponents = true;
+    {
+        struct TraversalGuard {
+            bool& traversing;
+            ~TraversalGuard() { traversing = false; }
+        } guard{m_isTraversingComponents};
+
+        for (auto it = m_components.begin(); it != m_components.end();) {
+            if ((*it)->IsAlive()) {
+                (*it)->OnRender(queue);
+            }
+
+            if ((*it)->IsAlive()) {
+                ++it;
+            } else {
+                it = m_components.erase(it);
+            }
+
+            if (!m_isAlive) {
+                break;
+            }
+        }
+    }
+
+    if (!m_isAlive) {
+        return;
+    }
+    FlushPendingCommands();
+
+    for (auto& child : m_children) {
+        if (child->m_isAlive) {
+            child->RenderTree(queue);
         }
     }
 }
@@ -62,12 +134,12 @@ void GameObject::SetPosition(const glm::vec3& position) {
     m_position = position;
 }
 
-const glm::vec3& GameObject::GetRotate() const {
-    return m_rotate;
+const glm::quat& GameObject::GetRotation() const {
+    return m_rotation;
 }
 
-void GameObject::SetRotate(const glm::vec3& rotate) {
-    m_rotate = rotate;
+void GameObject::SetRotation(const glm::quat& rotation) {
+    m_rotation = rotation;
 }
 
 const glm::vec3& GameObject::GetScale() const {
@@ -81,9 +153,7 @@ void GameObject::SetScale(const glm::vec3& scale) {
 glm::mat4 GameObject::GetLocalTransform() const {
     glm::mat4 model{1.0f};
     model = glm::translate(model, m_position);
-    model = glm::rotate(model, m_rotate.x, glm::vec3(1.0f, 0.0f, 0.0f));
-    model = glm::rotate(model, m_rotate.y, glm::vec3(0.0f, 1.0f, 0.0f));
-    model = glm::rotate(model, m_rotate.z, glm::vec3(0.0f, 0.0f, 1.0f));
+    model = model * glm::mat4_cast(m_rotation);
     model = glm::scale(model, m_scale);
 
     return model;
@@ -97,6 +167,33 @@ glm::mat4 GameObject::GetWorldTransform() const {
     }
 }
 
+glm::vec3 GameObject::GetWorldPosition() const {
+    if (m_parent == nullptr) {
+        return m_position;
+    } else {
+        return m_parent->GetWorldPosition() + m_position;
+    }
+}
+
+glm::quat GameObject::GetWorldRotation() const {
+    if (m_parent == nullptr) {
+        return m_rotation;
+    } else {
+        return m_parent->GetWorldRotation() * m_rotation;
+    }
+}
+
+glm::vec3 GameObject::GetWorldForward() const {
+    return GetWorldRotation() * glm::vec3(0.0f, 0.0f, -1.0f);
+}
+
+glm::vec3 GameObject::GetWorldRight() const {
+    return GetWorldRotation() * glm::vec3(1.0f, 0.0f, 0.0f);
+}
+
+glm::vec3 GameObject::GetWorldUpward() const {
+    return GetWorldRotation() * glm::vec3(0.0f, 1.0f, 0.0f);
+}
 
 bool GameObject::IsAlive() const {
     return m_isAlive;
@@ -104,6 +201,43 @@ bool GameObject::IsAlive() const {
 
 void GameObject::MarkForDestroy() {
     m_isAlive = false;
+}
+
+bool GameObject::AttachComponent(std::unique_ptr<Component> component) {
+    if (!m_isAlive || !component || component->m_owner != nullptr ||
+        !component->IsAlive()) {
+        return false;
+    }
+
+    component->m_owner = this;
+    if (m_isTraversingComponents) {
+        m_pendingCommands.push_back(
+            AttachComponentCommand{std::move(component)});
+        return true;
+    }
+
+    return AttachComponentImmediate(std::move(component));
+}
+
+bool GameObject::AttachComponentImmediate(
+    std::unique_ptr<Component> component) {
+    if (!component || component->m_owner != this || !component->IsAlive()) {
+        return false;
+    }
+    m_components.push_back(std::move(component));
+    return true;
+}
+
+void GameObject::FlushPendingCommands() {
+    for (auto& command : m_pendingCommands) {
+        std::visit([this](auto& value) {
+            using CommandType = std::decay_t<decltype(value)>;
+            if constexpr (std::is_same_v<CommandType, AttachComponentCommand>) {
+                AttachComponentImmediate(std::move(value.component));
+            }
+        }, command);
+    }
+    m_pendingCommands.clear();
 }
 
 } // namespace eng

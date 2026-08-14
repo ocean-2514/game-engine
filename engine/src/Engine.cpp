@@ -30,6 +30,15 @@ bool Engine::Init(Application* app, int width, int height) {
     m_window->SetKeyCallback([this](int key, bool pressed) {
         m_inputManager.SetKeyPressed(key, pressed);
     });
+    m_window->SetMouseButtonCallback([this](int key, bool pressed) {
+        m_inputManager.SetMouseButtonPressed(key, pressed);
+    });
+    m_window->SetCursorPosCallback([this](float xpos, float ypos) {
+        m_inputManager.RenewMousePosition({xpos, ypos});
+    });
+    m_window->SetMouseScrollCallback([this](float xoffset, float yoffset) {
+        m_inputManager.SetMouseScrollOffset({xoffset, yoffset});
+    });
 
     m_renderDevice = RenderDevice::Create();
     if (!m_renderDevice || !m_renderDevice->Init(*m_window)) {
@@ -66,10 +75,13 @@ void Engine::Run() {
         m_lastTimePoint = currentTimePoint;
 
         m_application->Update(deltaTime);
+        m_application->Render(m_renderQueue);
 
         m_renderQueue.Execute();
 
         m_window->SwapBuffers();
+
+        m_inputManager.RenewDataOnFrameEnd();
     }
 }
 

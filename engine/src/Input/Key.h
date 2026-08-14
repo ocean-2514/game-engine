@@ -4,6 +4,10 @@
 namespace eng {
 
 enum class Key : int {
+    MouseLeft = 0,
+    MouseRight = 1,
+    MouseMiddle = 2,
+
     Space = 32,
     Apostrophe = 39,
     Comma = 44,

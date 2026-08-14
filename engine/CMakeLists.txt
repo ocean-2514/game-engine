@@ -34,6 +34,8 @@ set(ENGINE_SRC
     src/Renderer/Material.h
     src/Renderer/Mesh.cpp
     src/Renderer/Mesh.h
+    src/Renderer/MeshFactory.cpp
+    src/Renderer/MeshFactory.h
     src/Renderer/OpenGL/OpenGLMesh.cpp
     src/Renderer/OpenGL/OpenGLMesh.h
     src/Graphics/VertexLayout.cpp
@@ -45,6 +47,14 @@ set(ENGINE_SRC
     src/Scene/Scene.h
     src/Scene/GameObject.cpp
     src/Scene/GameObject.h
+    src/Scene/Component.cpp
+    src/Scene/Component.h
+    src/Scene/Components/MeshComponent.cpp
+    src/Scene/Components/MeshComponent.h
+    src/Scene/Components/CameraComponent.cpp
+    src/Scene/Components/CameraComponent.h
+    src/Scene/Components/PlayerControllerComponent.cpp
+    src/Scene/Components/PlayerControllerComponent.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

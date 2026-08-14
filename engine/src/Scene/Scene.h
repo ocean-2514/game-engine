@@ -2,6 +2,7 @@
 #define O_SCENE
 
 #include "Scene/GameObject.h"
+#include "Scene/Components/CameraComponent.h"
 
 #include <memory>
 #include <string>
@@ -23,6 +24,8 @@ public:
     Scene& operator=(Scene&&) = delete;
 
     void Update(float deltaTime);
+    void Render(RenderQueue& queue, float aspect);
+    void Render(RenderQueue& queue, CameraComponent* camera, float aspect);
     // During Update, Clear is staged as an ordinary ordered command.
     void Clear();
 
@@ -52,6 +55,9 @@ public:
     // Contains only reports objects already attached to the scene tree.
     // Objects returned by CreateObject during Update are staged until flush.
     bool Contains(const GameObject* object) const;
+    CameraComponent* GetMainCamera();
+    const CameraComponent* GetMainCamera() const;
+    bool SetMainCamera(CameraComponent* camera);
     std::size_t GetRootObjectCount() const;
     GameObject* GetRootObject(std::size_t index);
     const GameObject* GetRootObject(std::size_t index) const;
@@ -94,17 +100,19 @@ private:
         const GameObject* newParent);
     bool IsStagedObject(const GameObject* object) const;
     bool IsKnownObject(const GameObject* object) const;
+    bool IsValidComponent(const Component* component) const;
         
     void ClearImmediate();
     bool SetParentImmediate(GameObject* object, GameObject* parent);
     bool AttachObjectImmediate(std::unique_ptr<GameObject> object, 
         std::string name, GameObject* parent);
-
-    ObjectContainer m_objects;
-    bool m_isUpdating = false;
-    std::vector<SceneCommand> m_pendingCommands;
     // called only in Update()
     void FlushPendingCommands();
+
+    ObjectContainer m_objects;
+    CameraComponent* m_mainCamera = nullptr;
+    bool m_isUpdating = false;
+    std::vector<SceneCommand> m_pendingCommands;
 };
 
 } // namespace eng

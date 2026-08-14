@@ -1,6 +1,8 @@
 #ifndef O_APPLICATION
 #define O_APPLICATION
 
+#include "Renderer/RenderQueue.h"
+
 namespace eng {
 
     
@@ -9,6 +11,7 @@ public:
     virtual bool Init() = 0;
     //deltaTime in seconds
     virtual void Update(float deltaTime) = 0;
+    virtual void Render(RenderQueue& queue) = 0;
     virtual void Destroy() = 0;
 
     void SetNeedsToBeClosed(bool value);

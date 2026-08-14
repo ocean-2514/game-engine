@@ -3,6 +3,7 @@
 
 #include "Renderer/Mesh.h"
 #include <glad/glad.h>
+#include <utility>
 
 namespace eng {
     
@@ -29,8 +30,8 @@ private:
     GLuint m_EBO = 0;
     GLenum m_drawMode = GL_TRIANGLES;
 
-    size_t m_vertexCnt = 0;
-    size_t m_indexCnt = 0;
+    std::size_t m_vertexCnt = 0;
+    std::size_t m_indexCnt = 0;
 
 };
 

@@ -5,7 +5,10 @@
 
 class TestObject : public eng::GameObject {
 public:
-    TestObject();
+    enum class Shape { Cube, Sphere, Plane };
+
+    TestObject(Shape shape = Shape::Cube,
+        glm::vec3 color = {0.9f, 0.4f, 0.3f});
     
 protected:
     void OnUpdate(float deltaTime) override;
@@ -16,9 +19,8 @@ public:
     std::shared_ptr<eng::ShaderProgram> shader;
 
 private:
-    float m_xoffset = 0.0f;
-    float m_yoffset = 0.0f;
-    float m_moveSpeed = 0.5f;
+    Shape m_shape;
+    glm::vec3 m_color;
 };
 
 #endif

@@ -23,14 +23,34 @@ bool RenderQueue::IsValid(const RenderCommand& command) {
            command.material && command.material->IsValid();
 }
 
+bool RenderQueue::BeginView(const CameraData& camera) {
+    if (m_currentView != nullptr) {
+        std::cout << "RenderQueue::BeginView: a render view is already open\n";
+        return false;
+    }
+
+    auto view = std::make_unique<RenderView>(RenderView{camera});
+    m_currentView = view.get();
+    m_views.push_back(std::move(view));
+    return true;
+}
+
 void RenderQueue::Submit(RenderCommand command) {
     if (!IsValid(command)) {
         std::cout << "RenderQueue::Submit: command requires a valid Mesh and Material\n";
         return;
     }
+    if (m_currentView == nullptr) {
+        std::cout << "RenderQueue::Submit: render view not set\n";
+        return;
+    }
 
     const uint64_t revision = command.material->GetRevision();
-    m_commands.push_back({std::move(command), revision});
+    m_currentView->commands.push_back({std::move(command), revision});
+}
+
+void RenderQueue::EndView() {
+    m_currentView = nullptr;
 }
 
 RenderQueue::ShaderState& RenderQueue::GetShaderState(
@@ -53,45 +73,60 @@ void RenderQueue::Execute() {
             [](const ShaderState& state) { return state.shader.expired(); }),
         m_shaderStates.end());
 
-    for (const auto& queued : m_commands) {
-        const auto& command = queued.command;
-        if (!IsValid(command)) {
-            std::cout << "RenderQueue::Execute: command became invalid after submission\n";
-            continue;
-        }
-        if (command.material->GetRevision() != queued.materialRevision) {
-            std::cout << "RenderQueue::Execute: material changed after submission; command skipped\n";
-            continue;
-        }
+    for (const auto& view : m_views) {
+        std::vector<ShaderProgram*> cameraDataAppliedShaders;
 
-        const auto& shader = command.material->GetShaderProgram();
-        if (m_currentShader.lock() != shader) {
-            shader->Bind();
-            m_currentShader = shader;
+        for (const auto& queued : view->commands) {
+            const auto& command = queued.command;
+            if (!IsValid(command)) {
+                std::cout << "RenderQueue::Execute: command became invalid after submission\n";
+                continue;
+            }
+            if (command.material->GetRevision() != queued.materialRevision) {
+                std::cout << "RenderQueue::Execute: material changed after submission; command skipped\n";
+                continue;
+            }
+
+            const auto& shader = command.material->GetShaderProgram();
+            if (m_currentShader.lock() != shader) {
+                shader->Bind();
+                m_currentShader = shader;
+            }
+
+            auto& shaderState = GetShaderState(shader);
+            const bool parametersAreCurrent =
+                shaderState.material.lock() == command.material &&
+                shaderState.materialRevision == command.material->GetRevision();
+            if (!parametersAreCurrent) {
+                command.material->ApplyParameters();
+                shaderState.material = command.material;
+                shaderState.materialRevision = command.material->GetRevision();
+            }
+
+            const bool cameraDataIsCurrent =
+                std::find(cameraDataAppliedShaders.begin(),
+                    cameraDataAppliedShaders.end(), shader.get()) !=
+                cameraDataAppliedShaders.end();
+            if (!cameraDataIsCurrent) {
+                shader->setMat4f("uView", view->camera.view);
+                shader->setMat4f("uProjection", view->camera.projection);
+                cameraDataAppliedShaders.push_back(shader.get());
+            }
+
+            // set modelMatrix
+            shader->setMat4f("uModel", command.modelMatrix);
+
+            command.mesh->Bind();
+            command.mesh->Draw();
         }
-
-        // set modelMatrix
-        shader->setMat4f("uModel", command.modelMatrix);
-
-        auto& shaderState = GetShaderState(shader);
-        const bool parametersAreCurrent =
-            shaderState.material.lock() == command.material &&
-            shaderState.materialRevision == command.material->GetRevision();
-        if (!parametersAreCurrent) {
-            command.material->ApplyParameters();
-            shaderState.material = command.material;
-            shaderState.materialRevision = command.material->GetRevision();
-        }
-
-        command.mesh->Bind();
-        command.mesh->Draw();
     }
 
     Clear();
 }
 
 void RenderQueue::Clear() {
-    m_commands.clear();
+    m_currentView = nullptr;
+    m_views.clear();
 }
 
 void RenderQueue::InvalidateStateCache() {

@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <variant>
 
+#include <glm/glm.hpp>
+
 namespace eng {
 
 class ShaderProgram;
@@ -21,11 +23,12 @@ public:
     void SetShaderProgram(std::shared_ptr<ShaderProgram> shaderProgram);
     void SetParam(std::string name, int value);
     void SetParam(std::string name, float value);
+    void SetParam(std::string name, glm::vec3 value);
     void Bind() const;
     bool IsValid() const;
 
 private:
-    using ParameterValue = std::variant<int, float>;
+    using ParameterValue = std::variant<int, float, glm::vec3>;
 
     void SetParamValue(std::string name, ParameterValue value);
     void ApplyParameters() const;

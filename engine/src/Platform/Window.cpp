@@ -8,4 +8,13 @@ std::unique_ptr<Window> Window::Create(const WindowDesc& desc) {
     return window->Init(desc) ? std::move(window) : nullptr;
 }
 
+float Window::GetWidth() const {
+    return m_width;
+}
+
+float Window::GetHeight() const {
+    return m_height;
+}
+
+
 } // namespace eng

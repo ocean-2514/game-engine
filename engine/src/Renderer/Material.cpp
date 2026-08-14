@@ -26,6 +26,10 @@ void Material::SetParam(std::string name, float value) {
     SetParamValue(std::move(name), value);
 }
 
+void Material::SetParam(std::string name, glm::vec3 value) {
+    SetParamValue(std::move(name), value);
+}
+
 void Material::SetParamValue(std::string name, ParameterValue value) {
     const auto it = m_params.find(name);
     if (it != m_params.end() && it->second == value) {
@@ -56,6 +60,8 @@ void Material::ApplyParameters() const {
                 m_shaderProgram->setInt(name, value);
             } else if constexpr (std::is_same_v<ValueType, float>) {
                 m_shaderProgram->setFloat(name, value);
+            } else if constexpr (std::is_same_v<ValueType, glm::vec3>) {
+                m_shaderProgram->setVec3(name, value);
             }
         }, parameter);
     }

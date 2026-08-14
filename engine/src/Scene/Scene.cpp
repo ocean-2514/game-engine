@@ -1,6 +1,7 @@
 #include "Scene/Scene.h"
-
+#include "Renderer/RenderQueue.h"
 #include <utility>
+#include <iostream>
 
 namespace eng {
 
@@ -33,6 +34,29 @@ void Scene::Update(float deltaTime) {
     // flush commands after objects marked for destroy are destroyed
     FlushPendingCommands();
 }
+
+void Scene::Render(RenderQueue& queue, float aspect) {
+    Render(queue, m_mainCamera, aspect);
+}
+
+void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect) {
+    if (!IsValidComponent(camera)) return;
+
+    if (!queue.BeginView({
+        camera->GetViewMatrix(),
+        camera->GetProjectionMatrix(aspect)
+    })) {
+        return;
+    }
+
+    for (auto& object : m_objects) {
+        if (!object->IsAlive()) continue;
+        object->RenderTree(queue);
+    }
+
+    queue.EndView();
+}
+
 
 void Scene::Clear() {
     if (m_isUpdating) {
@@ -148,7 +172,14 @@ bool Scene::IsKnownObject(const GameObject* object) const {
     return Contains(object) || IsStagedObject(object);
 }
 
+bool Scene::IsValidComponent(const Component* component) const {
+    return component != nullptr && component->IsAlive() &&
+        IsKnownObject(component->GetOwner()) && component->GetOwner()->IsAlive();
+}
+
+
 void Scene::ClearImmediate() {
+    m_mainCamera = nullptr;
     m_objects.clear();
 }
 
@@ -210,6 +241,30 @@ void Scene::FlushPendingCommands() {
     }
     m_pendingCommands.clear();
 }
+
+CameraComponent* Scene::GetMainCamera() {
+    return m_mainCamera;
+}
+
+const CameraComponent* Scene::GetMainCamera() const {
+    return m_mainCamera;
+}
+
+bool Scene::SetMainCamera(CameraComponent* camera) {
+    if (camera == nullptr) {
+        m_mainCamera = nullptr;
+        return true;
+    }
+
+    if (!IsValidComponent(camera)) {
+        std::cout << "Scene::SetMainCamera: camera does not belong to this scene or is not alive\n";
+        return false;
+    }
+
+    m_mainCamera = camera;
+    return true;
+}
+
 
 std::size_t Scene::GetRootObjectCount() const {
     return m_objects.size();
