@@ -12,17 +12,19 @@ public:
     bool Init(const Window& window) override;
     void Clear(const ClearDesc& desc) override;
     std::shared_ptr<ShaderProgram> CreateShaderProgram(
-        const std::string& vertexPath,
-        const std::string& fragmentPath,
-        const std::string& geometryPath = {}) override;
+        const std::string& vertexCode,
+        const std::string& fragmentCode,
+        const std::string& geometryCode = {}) override;
     std::shared_ptr<Mesh> CreateMesh(
         const VertexLayout& layout,
         const std::vector<float>& vertices,
         const std::vector<uint32_t>& indices = {}) override;
+    std::shared_ptr<Texture> CreateTexture(
+        const TextureDesc& textureDesc,
+        const SamplerDesc& samplerDesc,
+        const void* pixels,
+        std::size_t byteCount) override;
 
-private:
-    GLuint CreateShader(const std::string& path, GLenum type) const;
-    GLuint CreateProgram(GLuint vertex, GLuint fragment, GLuint geometry = 0) const;
 };
 
 } // namespace eng

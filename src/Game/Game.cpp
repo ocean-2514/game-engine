@@ -5,18 +5,26 @@
 #include <utility>
 
 bool Game::Init() {
+    auto& engine = eng::Engine::GetInstance();
+    m_materialAssetLoader = std::make_unique<eng::MaterialAssetLoader>(
+        engine.GetFileSystem(), engine.GetRenderDevice());
+
     auto* cube = scene.CreateObject<TestObject>(
-        "cube", nullptr, TestObject::Shape::Cube, glm::vec3(0.9f, 0.3f, 0.2f));
+        "cube", nullptr, TestObject::Shape::Cube,
+        glm::vec3(0.9f, 0.3f, 0.2f), *m_materialAssetLoader);
     auto* sphere = scene.CreateObject<TestObject>(
-        "sphere", nullptr, TestObject::Shape::Sphere, glm::vec3(0.2f, 0.6f, 0.9f));
+        "sphere", nullptr, TestObject::Shape::Sphere,
+        glm::vec3(0.2f, 0.6f, 0.9f), *m_materialAssetLoader);
     auto* plane = scene.CreateObject<TestObject>(
-        "plane", nullptr, TestObject::Shape::Plane, glm::vec3(0.3f, 0.7f, 0.3f));
+        "plane", nullptr, TestObject::Shape::Plane,
+        glm::vec3(0.3f, 0.7f, 0.3f), *m_materialAssetLoader);
 
     cube->SetPosition({-1.5f, 0.0f, 0.0f});
     sphere->SetPosition({1.5f, 0.0f, 0.0f});
     plane->SetPosition({0.0f, 0.0f, 0.0f});
 
     camera = scene.CreateObject<Camera>("MainCamera", nullptr);
+
     return true;
 }
 

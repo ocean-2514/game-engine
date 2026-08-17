@@ -123,6 +123,10 @@ RenderQueue& Engine::GetRenderQueue() {
     return m_renderQueue;
 }
 
+FileSystem& Engine::GetFileSystem() {
+    return m_fileSystem;
+}
+
 Engine::~Engine() {
     Destroy();
 }

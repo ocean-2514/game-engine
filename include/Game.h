@@ -20,6 +20,7 @@ public:
     Camera* camera;
 
 private:
+    std::unique_ptr<eng::MaterialAssetLoader> m_materialAssetLoader;
     float xoffset = 0.0f;
     float yoffset = 0.0f;
 };

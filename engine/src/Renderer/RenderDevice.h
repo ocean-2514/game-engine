@@ -2,15 +2,18 @@
 #define O_RENDER_DEVICE
 
 #include <memory>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "Graphics/Clear.h"
+#include "Renderer/TextureDesc.h"
 
 namespace eng {
 
 class ShaderProgram;
+class Texture;
 class Mesh;
 class Window;
 struct VertexLayout;
@@ -22,13 +25,21 @@ public:
     virtual bool Init(const Window& window) = 0;
     virtual void Clear(const ClearDesc& desc) = 0;
     virtual std::shared_ptr<ShaderProgram> CreateShaderProgram(
-        const std::string& vertexPath,
-        const std::string& fragmentPath,
-        const std::string& geometryPath = {}) = 0;
+        const std::string& vertexCode,
+        const std::string& fragmentCode,
+        const std::string& geometryCode = {}) = 0;
     virtual std::shared_ptr<Mesh> CreateMesh(
         const VertexLayout& layout,
         const std::vector<float>& vertices,
         const std::vector<uint32_t>& indices = {}) = 0;
+    // The device must copy or consume pixel data before this call returns;
+    // it must not retain the borrowed pixels pointer.
+    virtual std::shared_ptr<Texture> CreateTexture(
+        const TextureDesc& textureDesc,
+        const SamplerDesc& samplerDesc,
+        const void* pixels,
+        std::size_t byteCount) = 0;
+
 
     static std::unique_ptr<RenderDevice> Create();
 };

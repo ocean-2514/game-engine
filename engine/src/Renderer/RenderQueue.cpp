@@ -94,13 +94,24 @@ void RenderQueue::Execute() {
             }
 
             auto& shaderState = GetShaderState(shader);
+            const bool texturesAreCurrent =
+                !command.material->HasTextures() ||
+                (m_currentTextureMaterial.lock() == command.material &&
+                 m_currentTextureMaterialRevision ==
+                    command.material->GetRevision());
             const bool parametersAreCurrent =
                 shaderState.material.lock() == command.material &&
-                shaderState.materialRevision == command.material->GetRevision();
+                shaderState.materialRevision == command.material->GetRevision() &&
+                texturesAreCurrent;
             if (!parametersAreCurrent) {
                 command.material->ApplyParameters();
                 shaderState.material = command.material;
                 shaderState.materialRevision = command.material->GetRevision();
+                if (command.material->HasTextures()) {
+                    m_currentTextureMaterial = command.material;
+                    m_currentTextureMaterialRevision =
+                        command.material->GetRevision();
+                }
             }
 
             const bool cameraDataIsCurrent =
@@ -108,13 +119,13 @@ void RenderQueue::Execute() {
                     cameraDataAppliedShaders.end(), shader.get()) !=
                 cameraDataAppliedShaders.end();
             if (!cameraDataIsCurrent) {
-                shader->setMat4f("uView", view->camera.view);
-                shader->setMat4f("uProjection", view->camera.projection);
+                shader->SetMat4f("uView", view->camera.view);
+                shader->SetMat4f("uProjection", view->camera.projection);
                 cameraDataAppliedShaders.push_back(shader.get());
             }
 
             // set modelMatrix
-            shader->setMat4f("uModel", command.modelMatrix);
+            shader->SetMat4f("uModel", command.modelMatrix);
 
             command.mesh->Bind();
             command.mesh->Draw();
@@ -131,6 +142,8 @@ void RenderQueue::Clear() {
 
 void RenderQueue::InvalidateStateCache() {
     m_currentShader.reset();
+    m_currentTextureMaterial.reset();
+    m_currentTextureMaterialRevision = 0;
     m_shaderStates.clear();
 }
 

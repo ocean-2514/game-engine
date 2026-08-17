@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "name": "container",
+    "shader": {
+        "vertex": "shader/vs.glsl",
+        "fragment": "shader/fs.glsl"
+    },
+    "parameters": [
+        {
+            "name": "objTexture",
+            "type": "texture2D",
+            "value": "texture/container.jpg"
+        }
+    ]
+}

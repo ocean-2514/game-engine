@@ -14,7 +14,7 @@ public:
     ENG_COMPONENT_TYPE(PlayerControllerComponent);
 
     PlayerControllerComponent(InputManager* inputManager,
-        float sensitivity = 0.1f, float moveSpeed = 1.5f);
+        float sensitivity = 0.1f, float moveSpeed = 2.0f);
     
     void SetWorldUp(const glm::vec3& worldUp);
     const glm::vec3& GetWorldUp() const;

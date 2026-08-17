@@ -7,8 +7,10 @@ class TestObject : public eng::GameObject {
 public:
     enum class Shape { Cube, Sphere, Plane };
 
-    TestObject(Shape shape = Shape::Cube,
-        glm::vec3 color = {0.9f, 0.4f, 0.3f});
+    TestObject(
+        Shape shape,
+        glm::vec3 color,
+        eng::MaterialAssetLoader& materialAssetLoader);
     
 protected:
     void OnUpdate(float deltaTime) override;
@@ -16,7 +18,6 @@ protected:
 public:
     std::shared_ptr<eng::Material> material;
     std::shared_ptr<eng::Mesh> mesh;
-    std::shared_ptr<eng::ShaderProgram> shader;
 
 private:
     Shape m_shape;

@@ -7,6 +7,7 @@
 #include "Input/InputManager.h"
 #include "Renderer/RenderDevice.h"
 #include "Renderer/RenderQueue.h"
+#include "IO/FileSystem.h"
 
 namespace eng {
 
@@ -32,6 +33,7 @@ public:
     Window* GetWindow();
     RenderDevice& GetRenderDevice();
     RenderQueue& GetRenderQueue();
+    FileSystem& GetFileSystem();
     
 private:
     std::unique_ptr<Application> m_application;
@@ -39,7 +41,7 @@ private:
     std::unique_ptr<RenderDevice> m_renderDevice;
     InputManager m_inputManager;
     RenderQueue m_renderQueue;
-    
+    FileSystem m_fileSystem;
 
     std::chrono::system_clock::time_point m_lastTimePoint;
     Engine() = default;

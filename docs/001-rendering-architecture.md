@@ -591,3 +591,164 @@ GameObject / Renderer 属性       RenderView 条件
 6. RenderView 以后可扩展 viewport、RenderTarget、ClearSettings、LayerMask 和后处理配置。
 
 这些优化减少每个视图的候选集合，但不改变“每个 View 独立筛选”的基本模型。当前不实现 Render Graph、并行命令生成或空间索引。
+
+## 2026-08-16：Texture 当前边界与后续设计
+
+### 当前实现
+
+Texture 已按前端资源与 OpenGL 后端实现分层：
+
+```text
+游戏 / Material
+└─ shared_ptr<Texture>
+   └─ RenderDevice::CreateTexture(path)
+      └─ OpenGLTexture
+         ├─ stb_image 解码
+         ├─ OpenGL 像素上传与 mipmap 生成
+         └─ GLuint 生命周期管理
+```
+
+当前边界约定：
+
+- `Texture` 只公开尺寸与 `IsValid()`，不公开 `GLuint` 或伪装成通用 ID 的 `uint32_t`；
+- `OpenGLTexture` 独占 OpenGL Texture Object，并负责 RAII 删除；
+- 创建失败由 `RenderDevice::CreateTexture()` 返回 nullptr 表达；
+- OpenGL 后端支持 1/2/3/4 通道 8-bit 图片，并处理上传行对齐；
+- Material 使用 shared_ptr 持有 Texture，纹理生命周期至少覆盖所有引用它的延迟 RenderCommand；
+- Material 把每张纹理映射到确定的 texture unit，ShaderProgram 接收纹理、uniform 名称和 unit；
+- OpenGL texture unit 绑定是上下文全局状态，不属于 Shader Program。RenderQueue 除每 Shader 的普通 uniform 缓存外，还跟踪最后实际绑定纹理的 Material；
+- 运行期创建 Texture 时，OpenGL 后端必须恢复其临时修改的 active texture、texture binding 和 pixel unpack alignment，避免破坏 RenderQueue 状态缓存。
+
+当前 `SetTexture(name, nullptr)` 表示从 Material 移除该纹理项。Material 无法从 Shader 自动判断 sampler 是否必需，因此“缺少 Shader 必需纹理”暂时仍由调用方负责。
+
+### TextureDesc：描述图像资源
+
+路径加载接口适合当前示例，但不能覆盖程序生成纹理、Render Target、HDR、深度纹理和数组纹理。出现这些需求后，应增加引擎级描述结构，而不是向公共接口加入 GLenum：
+
+```cpp
+enum class TextureDimension {
+    Texture2D,
+    TextureCube
+};
+
+enum class TextureFormat {
+    R8,
+    RG8,
+    RGB8,
+    RGBA8,
+    SRGB8,
+    SRGBA8
+    // 按实际 HDR、depth/stencil 用例继续增加
+};
+
+struct TextureDesc {
+    TextureDimension dimension = TextureDimension::Texture2D;
+    TextureFormat format = TextureFormat::RGBA8;
+    uint32_t width = 1;
+    uint32_t height = 1;
+    uint32_t mipLevels = 1;
+    bool generateMipmaps = false;
+};
+```
+
+未来 `RenderDevice` 可同时提供：
+
+```cpp
+CreateTexture(const TextureDesc& desc, const ImageData* initialData);
+CreateTextureFromFile(path, const TextureLoadOptions& options);
+```
+
+文件路径、翻转、色彩空间等属于加载策略；GPU format、尺寸和 mip 层级属于资源描述，两者不应永久混为一个构造函数。
+
+### ImageData：解码与 GPU 上传分离
+
+目前 stb_image 位于 OpenGLTexture.cpp，足以支持同步学习用例，但把文件 IO、图片解码和 GPU 创建绑定在了 OpenGL 后端。后续建议形成：
+
+```text
+Asset / IO 层
+└─ DecodeImage(path, options) -> ImageData
+                                  │
+Renderer / RenderDevice           │ pixels + metadata
+└─ CreateTexture(desc, ImageData) ◄┘
+   └─ OpenGL：glTexImage*
+   └─ Vulkan：staging upload（未来假设）
+```
+
+`ImageData` 可包含 width、height、channel/format、row pitch 和拥有的像素内存。这样程序生成图像、测试数据和其他解码器都可以走同一上传入口，也便于以后把 CPU 解码放到工作线程。
+
+`stbi_set_flip_vertically_on_load()` 是库级全局状态。开始并行加载前，应改为每次加载的显式选项，并在解码结果上独立翻转，避免线程和资源之间互相影响。
+
+### Texture 与 Sampler 分离
+
+当前 wrap/filter 固定写在 OpenGLTexture 创建中。长期应区分：
+
+- Texture：图像内容、尺寸、格式、mip 数据；
+- Sampler：寻址、过滤、LOD 和各向异性规则。
+
+```cpp
+enum class AddressMode { Repeat, ClampToEdge, MirroredRepeat };
+enum class FilterMode { Nearest, Linear };
+
+struct SamplerDesc {
+    AddressMode addressU = AddressMode::Repeat;
+    AddressMode addressV = AddressMode::Repeat;
+    FilterMode minFilter = FilterMode::Linear;
+    FilterMode magFilter = FilterMode::Linear;
+    bool useMipmaps = true;
+    float maxAnisotropy = 1.0f;
+};
+```
+
+OpenGL 可使用 Sampler Object，Vulkan 则对应 VkSampler。只有当同一 Texture 需要多种采样方式，或材质开始需要可配置过滤时再实现，不为当前单一用例提前增加对象。
+
+### 色彩空间
+
+Texture format 必须区分颜色数据与数值数据：
+
+- albedo、base color、UI 颜色等通常按 sRGB 解码；
+- normal、roughness、metallic、AO、height 等数据纹理保持线性；
+- HDR 和 Render Target 根据真实管线选择浮点格式。
+
+当前上传统一使用线性 R8/RG8/RGB8/RGBA8。实现 sRGB 前，还需要统一 framebuffer sRGB、Shader 中的光照计算空间和最终输出转换，不能只把内部格式孤立地改成 GL_SRGB8。
+
+### 默认资源与失败策略
+
+未来可以由 Renderer 或 AssetManager 创建并长期持有少量默认纹理：
+
+- 1×1 白色：缺省 albedo；
+- 1×1 黑色：缺省 emissive/遮罩；
+- 平坦法线 `(0.5, 0.5, 1.0)`：缺省 normal map；
+- 棋盘格：资源加载失败的可视化提示。
+
+是否使用 fallback 应由资源/材质策略决定。底层 RenderDevice 仍应明确报告创建失败，不应静默把所有失败替换成默认纹理。
+
+### 资源缓存与异步加载
+
+相同路径当前会重复解码并创建多个 GPU Texture。资源数量开始增长后，可引入 AssetManager/ResourceManager：
+
+```text
+规范化资源路径 + 加载选项
+              │ cache key
+              ▼
+weak/shared Texture cache
+```
+
+缓存键必须包含会改变资源结果的选项，例如 sRGB、mipmap、目标 format，而不能只使用文件路径。
+
+异步加载应把 CPU 文件读取/解码与 GPU 上传分成两个阶段。OpenGL GPU 创建通常仍提交到持有当前 Context 的渲染线程；不要直接从任意工作线程调用 OpenGL。
+
+### 绑定模型的后续演进
+
+当前 `ShaderProgram::SetTexture(name, texture, unit)` 是可工作的过渡接口，unit 可理解为资源绑定槽，而非公开的 GLuint。后续 Material/Pipeline 资源绑定成熟后，应让 Material 描述纹理参数，由后端绑定层分配或映射槽位，游戏代码不直接管理 texture unit。
+
+可能的演进顺序：
+
+1. 保持当前 Texture2D + Material 路径，完善错误日志和默认纹理；
+2. 实现 TextureDesc、TextureLoadOptions 和 ImageData；
+3. 增加 sRGB/线性格式选择及统一颜色空间；
+4. 在确有多种采样方式时引入 SamplerDesc/Sampler；
+5. 增加 Cubemap、Render Target/depth Texture 和必要的 usage 标志；
+6. 引入资源缓存，再根据加载卡顿需求拆分异步解码与渲染线程上传；
+7. Pipeline/参数布局成熟后，把字符串 sampler uniform 和 texture unit 分配收进后端绑定层。
+
+暂不实现 bindless texture、纹理流送、虚拟纹理、稀疏纹理或通用 descriptor 系统。这些设计应由真实规模和后端需求推动。

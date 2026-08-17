@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(ASSETS_DIR ${CMAKE_SOURCE_DIR}/assets)
+
+configure_file(
+    ${PROJECT_SOURCE_DIR}/config.h.in
+    ${PROJECT_BINARY_DIR}/config.h
+)
 
 #glad
 add_library(glad STATIC ${CMAKE_CURRENT_SOURCE_DIR}/include/glad/glad.c)
@@ -55,13 +61,32 @@ set(ENGINE_SRC
     src/Scene/Components/CameraComponent.h
     src/Scene/Components/PlayerControllerComponent.cpp
     src/Scene/Components/PlayerControllerComponent.h
+    src/IO/FileSystem.cpp
+    src/IO/FileSystem.h
+    src/Renderer/Texture.cpp
+    src/Renderer/Texture.h
+    src/Renderer/OpenGL/OpenGLTexture.cpp
+    src/Renderer/OpenGL/OpenGLTexture.h
+    src/Assets/MaterialAssetLoader.cpp
+    src/Assets/MaterialAssetLoader.h
+    src/Assets/MaterialDesc.h
+    src/Assets/ImageLoader.cpp
+    src/Assets/ImageLoader.h
+    src/Renderer/TextureDesc.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})
 
 target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(engine PRIVATE ${PROJECT_BINARY_DIR})
 
 
 target_link_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib)
 target_link_libraries(engine PUBLIC libglfw3dll.a glad)
+
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${ASSETS_DIR}
+    ${CMAKE_BINARY_DIR}/assets
+)

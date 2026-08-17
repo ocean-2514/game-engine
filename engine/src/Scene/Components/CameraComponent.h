@@ -7,13 +7,17 @@
 
 namespace eng {
 
+class InputManager;
 
 class CameraComponent : public Component
 {
 public:
     ENG_COMPONENT_TYPE(CameraComponent);
 
-    CameraComponent(float fov = 45.0f, float znear = 0.01f, float zfar = 100.0f);
+    CameraComponent(InputManager* inputManager,
+        float fov = 45.0f, float znear = 0.01f, float zfar = 100.0f);
+
+    void OnUpdate(float deltaTime) override;
     
     glm::mat4 GetViewMatrix() const;
     glm::mat4 GetProjectionMatrix(float aspect) const;
@@ -22,6 +26,9 @@ private:
     float m_fov = 45.0f;
     float m_znear = 0.01f;
     float m_zfar = 100.0f;
+    float m_zoomSpeed = 1.0f;
+
+    InputManager* m_inputManager;
 };
 
 

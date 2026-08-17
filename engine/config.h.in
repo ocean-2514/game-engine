@@ -1,0 +1,6 @@
+#ifndef O_CONFIG
+#define O_CONFIG
+
+#define ASSETS_ROOT "@ASSETS_DIR@"
+
+#endif // O_CONFIG

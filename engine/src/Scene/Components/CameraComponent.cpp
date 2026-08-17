@@ -1,12 +1,23 @@
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/GameObject.h"
+#include "Input/InputManager.h"
 #include <glm/gtx/quaternion.hpp>
 
 namespace eng {
     
 
-CameraComponent::CameraComponent(float fov, float znear, float zfar)
-    : m_fov(fov), m_znear(znear), m_zfar(zfar) {}
+CameraComponent::CameraComponent(InputManager* inputManager,
+    float fov, float znear, float zfar)
+    : m_inputManager(inputManager), m_fov(fov),
+    m_znear(znear), m_zfar(zfar) {}
+
+void CameraComponent::OnUpdate(float deltaTime) {
+    if (!m_inputManager) return;
+
+    m_fov -= m_inputManager->GetMouseScrollOffset().y * m_zoomSpeed;
+    m_fov = glm::clamp(m_fov, 30.0f, 70.0f);
+}
+
 
 glm::mat4 CameraComponent::GetViewMatrix() const {
     auto pos = m_owner->GetWorldPosition();

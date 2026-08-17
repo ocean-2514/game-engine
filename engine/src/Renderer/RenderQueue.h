@@ -61,6 +61,8 @@ private:
 
     std::vector<ShaderState> m_shaderStates;
     std::weak_ptr<ShaderProgram> m_currentShader;
+    std::weak_ptr<Material> m_currentTextureMaterial;
+    uint64_t m_currentTextureMaterialRevision = 0;
     std::vector<std::unique_ptr<RenderView>> m_views;
     RenderView* m_currentView = nullptr;
 };

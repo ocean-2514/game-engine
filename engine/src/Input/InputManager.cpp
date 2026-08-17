@@ -81,7 +81,7 @@ const glm::vec2& InputManager::GetMouseScrollOffset() const {
 }
 
 void InputManager::SetMouseScrollOffset(const glm::vec2& offset) {
-    m_mouseScrollOffset += offset;
+    m_mouseScrollOffset = offset;
 }
 
 glm::vec2 InputManager::GetMousePositionDelta() const {
