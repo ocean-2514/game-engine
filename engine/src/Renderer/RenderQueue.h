@@ -6,11 +6,16 @@
 #include <vector>
 #include <glm/mat4x4.hpp>
 
+#include "Common.h"
+#include "Renderer/RenderState.h"
+
 namespace eng {
 
 class Material;
 class Mesh;
 class ShaderProgram;
+class RenderDevice;
+
 struct RenderCommand {
     RenderCommand(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material, 
         const glm::mat4& modelMatrix);
@@ -18,11 +23,8 @@ struct RenderCommand {
     std::shared_ptr<Mesh> mesh;
     std::shared_ptr<Material> material;
     glm::mat4 modelMatrix;
-};
-
-struct CameraData {
-    glm::mat4 view{1.0f};
-    glm::mat4 projection{1.0f};
+    RenderPhase phase = RenderPhase::Opaque;
+    int32_t renderOrder = 0;
 };
 
 class RenderQueue {
@@ -31,10 +33,8 @@ public:
     bool BeginView(const CameraData& camera);
     void Submit(RenderCommand command);
     void EndView();
-    void Execute();
+    void Execute(RenderDevice& device);
     void Clear();
-
-
 
     // Call this after changing graphics state outside RenderQueue.
     void InvalidateStateCache();
@@ -58,13 +58,18 @@ private:
 
     ShaderState& GetShaderState(const std::shared_ptr<ShaderProgram>& shader);
     static bool IsValid(const RenderCommand& command);
+    void ApplyRenderState(const RenderState& state,
+        RenderDevice& device);
 
     std::vector<ShaderState> m_shaderStates;
+    RenderState m_currentRenderState{};
+    bool m_renderStateCacheValid = false;
     std::weak_ptr<ShaderProgram> m_currentShader;
     std::weak_ptr<Material> m_currentTextureMaterial;
     uint64_t m_currentTextureMaterialRevision = 0;
     std::vector<std::unique_ptr<RenderView>> m_views;
     RenderView* m_currentView = nullptr;
+
 };
 
 } // namespace eng

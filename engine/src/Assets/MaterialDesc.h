@@ -10,6 +10,7 @@
 
 #include "Assets/ImageLoader.h"
 #include "Renderer/TextureDesc.h"
+#include "Renderer/RenderState.h"
 
 namespace eng
 {
@@ -44,10 +45,18 @@ struct ShaderAssetDesc {
     }
 };
 
+struct MaterialRenderDesc {
+    SurfaceMode surface = SurfaceMode::Opaque;
+    int32_t defaultRenderOrder = 0;
+    float alphaCutoff = 0.5f;
+    RenderState state = MakeRenderState(SurfaceMode::Opaque);
+};
+
 struct MaterialDesc {
     uint32_t version = 1;
     std::string name;
     ShaderAssetDesc shader;
+    MaterialRenderDesc render;
     std::vector<MaterialParameterDesc> parameters;
 };
 

@@ -6,24 +6,30 @@
 
 bool Game::Init() {
     auto& engine = eng::Engine::GetInstance();
-    m_materialAssetLoader = std::make_unique<eng::MaterialAssetLoader>(
-        engine.GetFileSystem(), engine.GetRenderDevice());
+    auto& assets = engine.GetAssetManager();
 
     auto* cube = scene.CreateObject<TestObject>(
         "cube", nullptr, TestObject::Shape::Cube,
-        glm::vec3(0.9f, 0.3f, 0.2f), *m_materialAssetLoader);
+        glm::vec3(0.9f, 0.3f, 0.2f), assets);
     auto* sphere = scene.CreateObject<TestObject>(
         "sphere", nullptr, TestObject::Shape::Sphere,
-        glm::vec3(0.2f, 0.6f, 0.9f), *m_materialAssetLoader);
+        glm::vec3(0.2f, 0.6f, 0.9f), assets);
     auto* plane = scene.CreateObject<TestObject>(
         "plane", nullptr, TestObject::Shape::Plane,
-        glm::vec3(0.3f, 0.7f, 0.3f), *m_materialAssetLoader);
+        glm::vec3(0.3f, 0.7f, 0.3f), assets);
 
     cube->SetPosition({-1.5f, 0.0f, 0.0f});
     sphere->SetPosition({1.5f, 0.0f, 0.0f});
     plane->SetPosition({0.0f, 0.0f, 0.0f});
 
     camera = scene.CreateObject<Camera>("MainCamera", nullptr);
+
+    const auto model = assets.LoadModel("model/odette/奥黛塔.pmx"); 
+    eng::GameObject* modelObj = scene.InstantiateModel(model);
+    if (modelObj) { 
+        modelObj->SetScale(glm::vec3{0.1f});
+        modelObj->SetPosition(glm::vec3{0.0f, 1.0f, -1.0f});
+    }
 
     return true;
 }

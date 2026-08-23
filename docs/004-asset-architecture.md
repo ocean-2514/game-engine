@@ -204,3 +204,178 @@ MaterialAssetLoader 当前同时承担特定资产解析和小型缓存职责，
 - 提供默认/错误资源。
 
 在出现第二、第三种文件资产和跨资产依赖以前，不需要立即构建通用句柄、反射注册或复杂 Asset Database。
+
+## AssetManager 与共享加载服务（2026-08-21）
+
+随着 Model 资产加入，Texture 同时成为 Material 和 Model 的依赖。各 Loader 不再按值拥有自己的 TextureAssetLoader，而由 AssetManager 统一拥有并注入引用：
+
+```text
+Engine
+└─ AssetManager
+   ├─ TextureAssetLoader
+   ├─ MaterialAssetLoader ──引用──> TextureAssetLoader
+   └─ ModelAssetLoader    ──引用──> TextureAssetLoader
+                          └─引用──> MaterialAssetLoader
+```
+
+AssetManager 是组合根和外部门面，负责 Loader 的构造顺序、生命周期以及统一的 LoadTexture、LoadMaterial、InstantiateMaterial、LoadModel 入口。具体文件解析、资源创建和类型缓存仍由各 Loader 负责，AssetManager 不解析具体资产格式。
+
+AssetManager 在 RenderDevice 成功初始化后创建，在 RenderDevice 销毁前释放。这样 Loader 缓存中仍存活的 GPU 对象会在图形上下文有效期间销毁。
+
+ClearCaches 按 Model、Material、Texture 的依赖顺序清除 weak_ptr 查找记录。它不会销毁仍被 Scene 或应用持有的资源，也不表示热重载。
+
+## 共享 Material 与独立 Material 实例
+
+MaterialAssetLoader 现在提供两种明确语义：
+
+- `Load(path)` 返回按路径缓存和共享的 Material 资产；修改它会影响所有共享者。
+- `Instantiate(path)` 以共享资产为模板创建独立 Material；ShaderProgram 和 Texture 继续共享，参数表和纹理绑定表独立复制。
+
+模型导入必须使用 Instantiate，不能修改 Load 返回的缓存模板，否则一个模型导入的颜色或纹理会污染其他模型以及后续实例。
+
+当前采用轻量 Clone，而未引入 MaterialTemplate/MaterialInstance 新类型。将来需要材质继承、参数覆盖或批量实例时，可以再把模板和实例提升为正式概念。
+
+## Model 导入链路
+
+Model 是可复用的 GPU 就绪资产，由以下内容组成：
+
+```text
+Model
+├─ ModelMesh：Mesh + materialIndex
+├─ Material 槽位
+└─ ModelNode：名称 + localTransform + Mesh/子节点索引
+```
+
+Assimp 仅存在于 ModelAssetLoader.cpp 的实现边界内，公共头文件不暴露 `aiScene`、`aiNode`、`aiMesh` 或 `aiMaterial`。每次 Load 使用局部 ImportContext 保存 Assimp 索引到 Model 索引的映射，Loader 因此不再持有一次导入过程的临时状态。
+
+节点层级和局部矩阵会被保留。Assimp 矩阵通过逐元素函数转换为 GLM 矩阵，不能依赖内存布局执行 memcpy。根节点使用 ProcessNode 的实际返回索引，不假定根节点位于数组下标 0。
+
+当前网格统一转换为以下顶点布局：
+
+```text
+location 0: position vec3
+location 1: normal   vec3
+location 2: uv0      vec2
+```
+
+缺失 UV 时填入零；法线由 Assimp 的 GenSmoothNormals 生成。没有位置、法线或三角形索引的 Mesh 视为加载失败。
+
+Model 缓存键当前包含：
+
+```text
+规范化 Model 路径
++ 规范化材质模板路径
++ importMaterials 开关
+```
+
+缓存使用 weak_ptr；失败和半初始化 Model 不进入缓存。
+
+## Assimp Material 转换策略
+
+Assimp Material 是源文件的材质描述，不是引擎运行时 Material，也不能决定 Shader。当前转换明确分为三步：
+
+```text
+aiMaterial
+  ↓ 读取与 Assimp 无关的材质语义
+ImportedMaterialDesc
+  ↓ 应用当前内置 Phong 参数约定和材质模板
+独立 Material
+```
+
+ImportedMaterialDesc 只保存 ambient、diffuse、specular、emissive、shininess、opacity、ior 以及相应纹理，不保存 ShaderProgram。Shader 由 ModelLoadOptions 中的 `materialTemplatePath` 决定，默认是 `material/model-default.json`。
+
+当前模板映射约定为：
+
+```text
+diffuse texture  -> uDiffuseMap
+specular texture -> uSpecularMap
+normal texture   -> uNormalMap
+颜色和标量       -> 对应的 uAmbient/uDiffuse/... 参数
+```
+
+这些名称属于当前内置 Phong 材质契约，而不是 Assimp 数据。以后增加 PBR Shader 时，应增加新的导入配置或材质策略，把同一个 ImportedMaterialDesc 映射到另一套参数，而不是让 Assimp 分支散落在 Material 或 Shader 中。
+
+外部纹理路径相对于模型资产所在目录解析，并交给共享 TextureAssetLoader，因此 JSON Material 与导入 Model 可以复用同一个 Texture。漫反射纹理按 sRGB 加载，specular 和 normal 按线性数据加载。当前只使用每种语义的第一张纹理。
+
+嵌入纹理（例如 Assimp 路径 `*0`）尚未实现。遇到嵌入纹理或外部纹理加载失败时会记录日志并保留模板默认纹理；材质模板或 Mesh 创建失败则使整个 Model 加载失败。
+
+## 后续可扩展项
+
+- ImageLoader/TextureAssetLoader 支持从内存解码 Assimp 嵌入纹理。
+- 为 PBR metallic-roughness 与传统 Phong 分别定义材质导入策略。
+- 将 Shader 缓存从 MaterialAssetLoader 中提取为共享 ShaderAssetLoader。
+- 在 Scene 层增加 Model 实例化入口，递归创建 GameObject 与 MeshComponent；Model 本身不依赖 Scene。
+- 根据实际需求增加 tangent、骨骼、动画、灯光和相机导入；这些能力不提前塞入当前 Model。
+- 异步加载时把 Assimp 解析和图片解码留在工作线程，将 GPU 资源创建提交到渲染线程。
+
+## Material 渲染配置（2026-08-23）
+
+MaterialDesc 增加 `MaterialRenderDesc`，JSON 可使用可选的 render 对象。最小配置只声明高层表面模式：
+
+```json
+"render": {
+  "surface": "opaque"
+}
+```
+
+支持的 surface 为 `opaque`、`masked` 和 `transparent`。还可设置默认顺序与 masked cutoff：
+
+```json
+"render": {
+  "surface": "masked",
+  "order": 10,
+  "alphaCutoff": 0.5
+}
+```
+
+需要高级覆盖时可声明：
+
+```json
+"render": {
+  "surface": "transparent",
+  "depth": {
+    "test": true,
+    "write": false,
+    "compare": "less"
+  },
+  "blend": {
+    "enable": true,
+    "source": "sourceAlpha",
+    "destination": "oneMinusSourceAlpha",
+    "operation": "add"
+  },
+  "rasterizer": {
+    "cull": "none",
+    "frontFace": "counterClockwise"
+  }
+}
+```
+
+Loader 先根据 surface 生成一致的 Phase/State 默认值，再应用显式子状态。高级覆盖可以故意形成 Phase 与 State 不一致的组合，Loader 和 RenderQueue 不会静默纠正。
+
+Material clone 现在复制 SurfaceMode、RenderPhase、默认 renderOrder 和完整 RenderState。模型从模板实例化材质时不会再丢失渲染配置。
+
+## 模型透明语义识别
+
+ModelAssetLoader 按可靠性顺序确定 SurfaceMode：
+
+1. Assimp/glTF 明确提供 `OPAQUE`、`MASK` 或 `BLEND` alpha mode；
+2. opacity 小于 1 时使用 Transparent；
+3. 存在独立 opacity texture 时使用 Masked；
+4. 没有明确语义但 diffuse Texture 具有 alpha 通道时，使用 ModelLoadOptions::alphaTextureFallback；
+5. 其他情况保持 Opaque。
+
+alpha texture fallback 默认是 Masked，因为常见头发、树叶和栅栏更适合 discard、开启深度写入且关闭混合。调用者可显式选择 Opaque 或 Transparent。该选项会进入 Model 缓存键，避免不同导入策略错误共享同一 Model。
+
+“存在 alpha 通道”不等于“需要连续透明”：RGBA 图片可能全为 1，或者 alpha 可能承载其他数据。因此明确的模型/材质元数据优先于 TextureFormat 推断。
+
+Texture 现在保留 TextureFormat 并提供 `HasAlphaChannel()`。它只报告通道存在性，不自行修改 Material。模型导入策略才负责把通道信息转换为 fallback SurfaceMode。
+
+内置默认模型 Shader 支持：
+
+- diffuse alpha 与材质 opacity；
+- 可选独立 opacity map；
+- `uAlphaMasked` 与 `uAlphaCutoff` discard；
+- 保持 alpha 不受光照系数影响。
+
+Assimp 的 two-sided 标记映射为 CullMode::None。以后若引入真正的 Pipeline/Material technique，这些状态应进入相应 Pipeline 变体。

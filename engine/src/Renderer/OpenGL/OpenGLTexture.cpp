@@ -74,6 +74,7 @@ OpenGLTexture::OpenGLTexture(
 
     m_width = static_cast<int>(textureDesc.width);
     m_height = static_cast<int>(textureDesc.height);
+    m_format = textureDesc.format;
 
     GLint previousActiveTexture = GL_TEXTURE0;
     GLint previousTextureBinding = 0;

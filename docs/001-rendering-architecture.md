@@ -534,6 +534,50 @@ BlendState（通常每个颜色附件一份）
 
 当前建议暂缓实现完整 Pipeline，只保留上述目标设计。等项目第一次真正需要深度测试和背面剔除时，先添加最小 `DepthStencilState` 与 `RasterizerState`，随后让 Material 从持有 ShaderProgram 演进为持有 GraphicsPipeline。不要在 RenderDevice 上增加大量 `SetDepthTest`、`SetCullFace` 形式的零散永久状态接口。
 
+## 2026-08-23：当前残余问题
+- glClear(GL_STENCIL_BUFFER_BIT) 会受到 glStencilMask 影响。
+- 清除颜色附件会受到 glColorMask 影响。
+- 开启 Scissor Test 时，Clear 只清除裁剪区域。
+因此长期最好让 OpenGL 的 Clear 实现临时设置完整的清除写入掩码，清除后恢复；未来 RenderPass 则在 Pass 开始时统一处理这些状态。
+
+## 2026-08-23：RenderPhase、SurfaceMode 与 RenderState
+
+固定功能状态已经以引擎类型实现，并形成三层语义：
+
+```text
+SurfaceMode：普通材质的高层分类
+    ↓ 生成一致默认值
+RenderPhase：决定调度阶段和排序
+RenderState：决定 GPU 的最终深度、混合和光栅化行为
+```
+
+SurfaceMode 当前包括 Opaque、Masked 和 Transparent。默认映射为：
+
+| SurfaceMode | RenderPhase | Blend | Depth write |
+|---|---|---:|---:|
+| Opaque | Opaque | 关闭 | 开启 |
+| Masked | AlphaTest | 关闭 | 开启 |
+| Transparent | Transparent | 开启 | 关闭 |
+
+`Material::SetSurfaceMode()` 更新上述相关默认值，但保留模板已有的 depth test/compare 和 rasterizer 配置。高级调用者仍可随后直接覆盖 RenderState 或 RenderPhase；RenderState 始终是最终执行依据，RenderQueue 不会暗中根据 Phase 改写 GPU 状态。因此 Phase 与 State 可以形成不常见组合，但调用者需要明确承担其语义。
+
+Material 同时保存默认 RenderPhase 与默认 renderOrder。MeshComponent 默认从 Material 取得这两个值，并提供实例级 order/phase override 及清除 override 的接口。这使模型批量实例化时无需逐 Mesh 配置，同时允许单个对象调整调度顺序。
+
+每个 RenderView 内按以下键稳定排序：
+
+```text
+RenderPhase
+→ renderOrder
+→ Transparent 的 view-space 深度（远到近）
+→ 原提交顺序
+```
+
+当前透明距离使用对象局部原点变换后的 view-space Z。大型 Mesh 或原点偏移明显时可能不准确；引入 Bounds 后应改用世界包围盒中心。
+
+RenderQueue 在 Execute 时接收 RenderDevice 引用。第一次 Draw 和 `InvalidateStateCache()` 后的第一次 Draw 会强制应用完整 RenderState，之后仅提交变化的 Depth、Blend、Rasterizer 子状态。OpenGL 后端负责映射为 `glEnable/glDisable`、`glDepthMask/glDepthFunc`、`glBlendFunc/glBlendEquation`、`glCullFace/glFrontFace`。CullMode::None 映射为关闭面剔除，而不是 GL_FRONT_AND_BACK。
+
+当前 RenderState 尚未包含 StencilState、独立颜色/alpha 混合因子、color write mask 和 polygon mode。出现模板描边等真实多阶段需求后，应先增加 DepthStencilState 和有序 RenderPass，再逐步演进为 GraphicsPipeline；不要用普通物体 renderOrder 模拟完整 RenderPass。
+
 ## 2026-08-13：基于 RenderView 的渲染流程
 
 场景更新、渲染命令生成和命令执行已经拆分：

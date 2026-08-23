@@ -8,6 +8,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(ASSETS_DIR ${CMAKE_SOURCE_DIR}/assets)
 
+file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/assimp)
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/assimp/config.h.in
+    ${PROJECT_BINARY_DIR}/assimp/config.h
+)
+
 configure_file(
     ${PROJECT_SOURCE_DIR}/config.h.in
     ${PROJECT_BINARY_DIR}/config.h
@@ -73,17 +79,28 @@ set(ENGINE_SRC
     src/Assets/ImageLoader.cpp
     src/Assets/ImageLoader.h
     src/Renderer/TextureDesc.h
+    src/Assets/ModelAssetLoader.cpp
+    src/Assets/ModelAssetLoader.h
+    src/Renderer/Model.cpp
+    src/Renderer/Model.h
+    src/Assets/TextureAssetLoader.cpp
+    src/Assets/TextureAssetLoader.h
+    src/Assets/AssetManager.cpp
+    src/Assets/AssetManager.h
+    src/Common.h
+    src/Renderer/RenderState.cpp
+    src/Renderer/RenderState.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})
 
 target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_include_directories(engine PRIVATE ${PROJECT_BINARY_DIR})
+target_include_directories(engine PUBLIC ${PROJECT_BINARY_DIR})
 
 
 target_link_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-target_link_libraries(engine PUBLIC libglfw3dll.a glad)
+target_link_libraries(engine PUBLIC libglfw3dll.a glad libassimp)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

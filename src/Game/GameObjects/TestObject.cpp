@@ -1,9 +1,9 @@
 #include "TestObject.h"
-
+#include <iostream>
 TestObject::TestObject(
     Shape shape,
     glm::vec3 color,
-    eng::MaterialAssetLoader& materialAssetLoader)
+    eng::AssetManager& assetManager)
     : m_shape(shape), m_color(color) {
     auto& engine = eng::Engine::GetInstance();
     auto& device = engine.GetRenderDevice();
@@ -20,10 +20,10 @@ TestObject::TestObject(
             break;
     }
 
-    material = materialAssetLoader.Load("material/container.json");
+    material = assetManager.LoadMaterial("material/window.json");
 
     if (mesh && material) {
-        AddComponent<eng::MeshComponent>(mesh, material);
+        auto* meshComp = AddComponent<eng::MeshComponent>(mesh, material);
     }
 }
 

@@ -15,11 +15,32 @@ MeshComponent::MeshComponent(
 void MeshComponent::OnRender(RenderQueue& queue) {
     if (!IsValid()) return;
 
-    queue.Submit(RenderCommand{
+    RenderCommand command{
         m_mesh,
         m_material,
         GetOwner()->GetWorldTransform()
-    });
+    };
+    command.phase = m_renderPhaseOverride.value_or(
+        m_material->GetRenderPhase());
+    command.renderOrder = m_renderOrderOverride.value_or(
+        m_material->GetDefaultRenderOrder());
+    queue.Submit(std::move(command));
+}
+
+void MeshComponent::SetRenderOrder(int32_t order) {
+    m_renderOrderOverride = order;
+}
+
+void MeshComponent::ClearRenderOrderOverride() {
+    m_renderOrderOverride.reset();
+}
+
+void MeshComponent::SetRenderPhase(RenderPhase phase) {
+    m_renderPhaseOverride = phase;
+}
+
+void MeshComponent::ClearRenderPhaseOverride() {
+    m_renderPhaseOverride.reset();
 }
 
 bool MeshComponent::IsValid() const {

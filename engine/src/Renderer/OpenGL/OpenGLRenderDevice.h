@@ -24,6 +24,11 @@ public:
         const SamplerDesc& samplerDesc,
         const void* pixels,
         std::size_t byteCount) override;
+    
+    void SetDepthState(const DepthState& state) override;
+    void SetBlendState(const BlendState& state) override;
+    void SetRasterizerState(const RasterizerState& state) override;
+    void SetRenderState(const RenderState& state) override;
 
 };
 

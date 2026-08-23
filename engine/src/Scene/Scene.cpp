@@ -1,5 +1,7 @@
 #include "Scene/Scene.h"
+#include "Scene/Components/MeshComponent.h"
 #include "Renderer/RenderQueue.h"
+#include "Renderer/Model.h"
 #include <utility>
 #include <iostream>
 
@@ -241,6 +243,78 @@ void Scene::FlushPendingCommands() {
     }
     m_pendingCommands.clear();
 }
+
+GameObject* Scene::InstantiateModel(
+    const std::shared_ptr<Model>& model,
+    GameObject* parent) {
+    if (!model || !model->IsValid()) {
+        std::cout << "Scene::InstantiateModel: model is null or invalid\n";
+        return nullptr;
+    }
+    if (parent != nullptr &&
+        (!IsKnownObject(parent) || !parent->IsAlive())) {
+        std::cout << "Scene::InstantiateModel: parent does not belong to this scene\n";
+        return nullptr;
+    }
+
+    const auto& rootNode = model->GetNodes()[model->GetRootNodeIndex()];
+    const std::string instanceName = !model->GetName().empty()
+        ? model->GetName()
+        : (!rootNode.name.empty() ? rootNode.name : "Model");
+    GameObject* instanceRoot = CreateObject(instanceName, parent);
+    if (!instanceRoot) {
+        return nullptr;
+    }
+    if (!ProcessModelNode(
+            *model, model->GetRootNodeIndex(), instanceRoot)) {
+        // In staged mode the dead root will be discarded when commands flush;
+        // in immediate mode it will be removed by the next Scene::Update.
+        instanceRoot->MarkForDestroy();
+        std::cout << "Scene::InstantiateModel: failed to create model hierarchy\n";
+        return nullptr;
+    }
+    return instanceRoot;
+}
+
+GameObject* Scene::ProcessModelNode(
+    const Model& model,
+    uint32_t nodeIndex,
+    GameObject* parent) {
+    const auto& nodes = model.GetNodes();
+    const auto& meshes = model.GetMeshes();
+    const auto& materials = model.GetMaterials();
+    if (nodeIndex >= nodes.size() || parent == nullptr) {
+        return nullptr;
+    }
+    const auto& node = nodes[nodeIndex];
+    GameObject* obj = CreateObject(node.name, parent);
+    if (!obj) {
+        return nullptr;
+    }
+    obj->SetLocalTransform(node.localTransform);
+
+    for (auto meshIndex : node.meshIndices) {
+        if (meshIndex >= meshes.size()) return nullptr;
+        const auto& mesh = meshes[meshIndex];
+        if (mesh.materialIndex >= materials.size()) return nullptr;
+
+        GameObject* meshObj = CreateObject(mesh.name, obj);
+        if (!meshObj || !meshObj->AddComponent<MeshComponent>(
+                mesh.mesh, materials[mesh.materialIndex])) {
+            return nullptr;
+        }
+    }
+
+    for (auto childIndex : node.children) {
+        if (childIndex >= nodes.size() ||
+            !ProcessModelNode(model, childIndex, obj)) {
+            return nullptr;
+        }
+    }
+
+    return obj;
+}
+
 
 CameraComponent* Scene::GetMainCamera() {
     return m_mainCamera;

@@ -1,0 +1,21 @@
+{
+    "version": 1,
+    "name": "window",
+    "render": {
+        "surface": "transparent",
+        "blend": {
+            "enable": true
+        }
+    },
+    "shader": {
+        "vertex": "shader/vs.glsl",
+        "fragment": "shader/fs.glsl"
+    },
+    "parameters": [
+        {
+            "name": "objTexture",
+            "type": "texture2D",
+            "value": "texture/window.png"
+        }
+    ]
+}

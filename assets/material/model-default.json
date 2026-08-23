@@ -1,0 +1,18 @@
+{
+    "version": 1,
+    "name": "model-default",
+    "render": {
+        "surface": "opaque"
+    },
+    "shader": {
+        "vertex": "shader/default/vs.glsl",
+        "fragment": "shader/default/fs.glsl"
+    },
+    "parameters": [
+        {
+            "name": "uDiffuseMap",
+            "type": "texture2D",
+            "value": "texture/container.jpg"
+        }
+    ]
+}

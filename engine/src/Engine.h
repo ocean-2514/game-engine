@@ -12,6 +12,7 @@
 namespace eng {
 
 class Application;
+class AssetManager;
 class Window;
 
 class Engine {
@@ -34,11 +35,13 @@ public:
     RenderDevice& GetRenderDevice();
     RenderQueue& GetRenderQueue();
     FileSystem& GetFileSystem();
+    AssetManager& GetAssetManager();
     
 private:
     std::unique_ptr<Application> m_application;
     std::unique_ptr<Window> m_window;
     std::unique_ptr<RenderDevice> m_renderDevice;
+    std::unique_ptr<AssetManager> m_assetManager;
     InputManager m_inputManager;
     RenderQueue m_renderQueue;
     FileSystem m_fileSystem;

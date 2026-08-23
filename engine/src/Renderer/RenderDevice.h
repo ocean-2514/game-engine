@@ -9,6 +9,7 @@
 
 #include "Graphics/Clear.h"
 #include "Renderer/TextureDesc.h"
+#include "Renderer/RenderState.h"
 
 namespace eng {
 
@@ -39,7 +40,11 @@ public:
         const SamplerDesc& samplerDesc,
         const void* pixels,
         std::size_t byteCount) = 0;
-
+    
+    virtual void SetDepthState(const DepthState& state) = 0;
+    virtual void SetBlendState(const BlendState& state) = 0;
+    virtual void SetRasterizerState(const RasterizerState& state) = 0;
+    virtual void SetRenderState(const RenderState& state) = 0;
 
     static std::unique_ptr<RenderDevice> Create();
 };

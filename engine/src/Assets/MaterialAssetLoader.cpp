@@ -1,6 +1,6 @@
 #include "Assets/MaterialAssetLoader.h"
+#include "Assets/TextureAssetLoader.h"
 
-#include "Assets/ImageLoader.h"
 #include "IO/FileSystem.h"
 #include "Renderer/Material.h"
 #include "Renderer/RenderDevice.h"
@@ -18,12 +18,6 @@
 namespace eng {
 
 namespace {
-
-template<typename T>
-void HashCombine(std::size_t& seed, const T& value) {
-    seed ^= std::hash<T>{}(value) + 0x9e3779b9u +
-        (seed << 6) + (seed >> 2);
-}
 
 template<typename Map>
 void EraseExpired(Map& cache) {
@@ -63,6 +57,189 @@ bool ParseFilter(const rapidjson::Value& value, TextureFilter& result) {
     if (filter == "nearest") result = TextureFilter::Nearest;
     else if (filter == "linear") result = TextureFilter::Linear;
     else return false;
+    return true;
+}
+
+bool ParseSurfaceMode(const rapidjson::Value& value, SurfaceMode& result) {
+    if (!value.IsString()) return false;
+    const std::string mode = value.GetString();
+    if (mode == "opaque") result = SurfaceMode::Opaque;
+    else if (mode == "masked") result = SurfaceMode::Masked;
+    else if (mode == "transparent") result = SurfaceMode::Transparent;
+    else return false;
+    return true;
+}
+
+bool ParseCompareOp(const rapidjson::Value& value, CompareOp& result) {
+    if (!value.IsString()) return false;
+    const std::string op = value.GetString();
+    if (op == "less") result = CompareOp::Less;
+    else if (op == "lessEqual") result = CompareOp::LessEqual;
+    else if (op == "greater") result = CompareOp::Greater;
+    else if (op == "greaterEqual") result = CompareOp::GreaterEqual;
+    else if (op == "never") result = CompareOp::Never;
+    else if (op == "always") result = CompareOp::Always;
+    else if (op == "equal") result = CompareOp::Equal;
+    else if (op == "notEqual") result = CompareOp::NotEqual;
+    else return false;
+    return true;
+}
+
+bool ParseBlendFactor(const rapidjson::Value& value, BlendFactor& result) {
+    if (!value.IsString()) return false;
+    const std::string factor = value.GetString();
+    if (factor == "zero") result = BlendFactor::Zero;
+    else if (factor == "one") result = BlendFactor::One;
+    else if (factor == "sourceAlpha") result = BlendFactor::SourceAlpha;
+    else if (factor == "oneMinusSourceAlpha") {
+        result = BlendFactor::OneMinusSourceAlpha;
+    } else return false;
+    return true;
+}
+
+bool ParseBlendOp(const rapidjson::Value& value, BlendOp& result) {
+    if (!value.IsString()) return false;
+    const std::string op = value.GetString();
+    if (op == "add") result = BlendOp::Add;
+    else if (op == "subtract") result = BlendOp::Subtract;
+    else if (op == "reverseSubtract") result = BlendOp::ReverseSubtract;
+    else if (op == "min") result = BlendOp::Min;
+    else if (op == "max") result = BlendOp::Max;
+    else return false;
+    return true;
+}
+
+bool ParseCullMode(const rapidjson::Value& value, CullMode& result) {
+    if (!value.IsString()) return false;
+    const std::string mode = value.GetString();
+    if (mode == "none") result = CullMode::None;
+    else if (mode == "front") result = CullMode::Front;
+    else if (mode == "back") result = CullMode::Back;
+    else return false;
+    return true;
+}
+
+bool ParseFrontFace(const rapidjson::Value& value, FrontFace& result) {
+    if (!value.IsString()) return false;
+    const std::string face = value.GetString();
+    if (face == "clockwise") result = FrontFace::Clockwise;
+    else if (face == "counterClockwise") {
+        result = FrontFace::CounterClockwise;
+    } else return false;
+    return true;
+}
+
+bool ParseRenderDesc(
+    const rapidjson::Value& value,
+    MaterialRenderDesc& result,
+    std::string& error) {
+    if (!value.IsObject()) {
+        error = "render must be an object";
+        return false;
+    }
+    if (value.HasMember("surface")) {
+        if (!ParseSurfaceMode(value["surface"], result.surface)) {
+            error = "render.surface must be opaque, masked or transparent";
+            return false;
+        }
+        result.state = MakeRenderState(result.surface);
+    }
+    if (value.HasMember("order")) {
+        if (!value["order"].IsInt()) {
+            error = "render.order must be an integer";
+            return false;
+        }
+        result.defaultRenderOrder = value["order"].GetInt();
+    }
+    if (value.HasMember("alphaCutoff")) {
+        if (!value["alphaCutoff"].IsNumber()) {
+            error = "render.alphaCutoff must be a number";
+            return false;
+        }
+        result.alphaCutoff = value["alphaCutoff"].GetFloat();
+        if (result.alphaCutoff < 0.0f || result.alphaCutoff > 1.0f) {
+            error = "render.alphaCutoff must be between 0 and 1";
+            return false;
+        }
+    }
+    if (value.HasMember("depth")) {
+        const auto& depth = value["depth"];
+        if (!depth.IsObject()) {
+            error = "render.depth must be an object";
+            return false;
+        }
+        if (depth.HasMember("test")) {
+            if (!depth["test"].IsBool()) {
+                error = "render.depth.test must be a boolean";
+                return false;
+            }
+            result.state.depth.depthTestEnable = depth["test"].GetBool();
+        }
+        if (depth.HasMember("write")) {
+            if (!depth["write"].IsBool()) {
+                error = "render.depth.write must be a boolean";
+                return false;
+            }
+            result.state.depth.depthWriteEnable = depth["write"].GetBool();
+        }
+        if (depth.HasMember("compare") &&
+            !ParseCompareOp(depth["compare"],
+                result.state.depth.depthCompareOp)) {
+            error = "render.depth.compare is invalid";
+            return false;
+        }
+    }
+    if (value.HasMember("blend")) {
+        const auto& blend = value["blend"];
+        if (!blend.IsObject()) {
+            error = "render.blend must be an object";
+            return false;
+        }
+        if (blend.HasMember("enable")) {
+            if (!blend["enable"].IsBool()) {
+                error = "render.blend.enable must be a boolean";
+                return false;
+            }
+            result.state.blend.blendEnable = blend["enable"].GetBool();
+        }
+        if (blend.HasMember("source") &&
+            !ParseBlendFactor(blend["source"],
+                result.state.blend.sourceColor)) {
+            error = "render.blend.source is invalid";
+            return false;
+        }
+        if (blend.HasMember("destination") &&
+            !ParseBlendFactor(blend["destination"],
+                result.state.blend.destinationColor)) {
+            error = "render.blend.destination is invalid";
+            return false;
+        }
+        if (blend.HasMember("operation") &&
+            !ParseBlendOp(blend["operation"],
+                result.state.blend.colorOperation)) {
+            error = "render.blend.operation is invalid";
+            return false;
+        }
+    }
+    if (value.HasMember("rasterizer")) {
+        const auto& rasterizer = value["rasterizer"];
+        if (!rasterizer.IsObject()) {
+            error = "render.rasterizer must be an object";
+            return false;
+        }
+        if (rasterizer.HasMember("cull") &&
+            !ParseCullMode(rasterizer["cull"],
+                result.state.rasterizer.cullMode)) {
+            error = "render.rasterizer.cull is invalid";
+            return false;
+        }
+        if (rasterizer.HasMember("frontFace") &&
+            !ParseFrontFace(rasterizer["frontFace"],
+                result.state.rasterizer.frontFace)) {
+            error = "render.rasterizer.frontFace is invalid";
+            return false;
+        }
+    }
     return true;
 }
 
@@ -138,37 +315,11 @@ bool ParseTextureOptions(
 
 MaterialAssetLoader::MaterialAssetLoader(
     const FileSystem& fileSystem,
-    RenderDevice& renderDevice)
+    RenderDevice& renderDevice,
+    TextureAssetLoader& textureAssetLoader)
     : m_fileSystem(fileSystem),
-      m_renderDevice(renderDevice) {}
-
-bool MaterialAssetLoader::TextureCacheKey::operator==(
-    const TextureCacheKey& other) const {
-    return path == other.path &&
-        srgb == other.srgb &&
-        flipVertically == other.flipVertically &&
-        generateMipmaps == other.generateMipmaps &&
-        sampler.addressU == other.sampler.addressU &&
-        sampler.addressV == other.sampler.addressV &&
-        sampler.minFilter == other.sampler.minFilter &&
-        sampler.magFilter == other.sampler.magFilter &&
-        sampler.mipFilter == other.sampler.mipFilter;
-}
-
-std::size_t MaterialAssetLoader::TextureCacheKeyHash::operator()(
-    const TextureCacheKey& key) const noexcept {
-    std::size_t seed = 0;
-    HashCombine(seed, key.path);
-    HashCombine(seed, key.srgb);
-    HashCombine(seed, key.flipVertically);
-    HashCombine(seed, key.generateMipmaps);
-    HashCombine(seed, static_cast<int>(key.sampler.addressU));
-    HashCombine(seed, static_cast<int>(key.sampler.addressV));
-    HashCombine(seed, static_cast<int>(key.sampler.minFilter));
-    HashCombine(seed, static_cast<int>(key.sampler.magFilter));
-    HashCombine(seed, static_cast<int>(key.sampler.mipFilter));
-    return seed;
-}
+      m_renderDevice(renderDevice),
+      m_textureAssetLoader(textureAssetLoader) {}
 
 std::shared_ptr<Material> MaterialAssetLoader::Load(
     const std::string& relativePath) const {
@@ -207,10 +358,15 @@ std::shared_ptr<Material> MaterialAssetLoader::Load(
     return material;
 }
 
+std::shared_ptr<Material> MaterialAssetLoader::Instantiate(
+    const std::string& relativePath) const {
+    const auto material = Load(relativePath);
+    return material ? material->Clone() : nullptr;
+}
+
 void MaterialAssetLoader::ClearCache() {
     m_materialCache.clear();
     m_shaderCache.clear();
-    m_textureCache.clear();
 }
 
 bool MaterialAssetLoader::ParseMaterial(const std::string& json,
@@ -241,6 +397,14 @@ bool MaterialAssetLoader::ParseMaterial(const std::string& json,
             return false;
         }
         result.name = doc["name"].GetString();
+    }
+
+    if (doc.HasMember("render")) {
+        std::string renderError;
+        if (!ParseRenderDesc(doc["render"], result.render, renderError)) {
+            LogError(sourcePath, renderError);
+            return false;
+        }
     }
 
     if (!doc.HasMember("shader") || !doc["shader"].IsObject()) {
@@ -341,7 +505,7 @@ std::shared_ptr<Material> MaterialAssetLoader::CreateMaterial(
             std::get_if<TextureAssetDesc>(&parameter.value);
         if (textureDesc == nullptr) continue;
 
-        auto texture = LoadTexture(*textureDesc);
+        auto texture = m_textureAssetLoader.LoadTexture(*textureDesc);
         if (!texture) {
             std::cout << "MaterialAssetLoader: failed to load texture "
                       << textureDesc->path << '\n';
@@ -351,6 +515,12 @@ std::shared_ptr<Material> MaterialAssetLoader::CreateMaterial(
     }
 
     auto material = std::make_shared<Material>(std::move(shader));
+    material->SetSurfaceMode(desc.render.surface);
+    material->SetRenderState(desc.render.state);
+    material->SetDefaultRenderOrder(desc.render.defaultRenderOrder);
+    material->SetParam("uAlphaMasked",
+        desc.render.surface == SurfaceMode::Masked ? 1 : 0);
+    material->SetParam("uAlphaCutoff", desc.render.alphaCutoff);
     for (const auto& parameter : desc.parameters) {
         std::visit([&](const auto& value) {
             using T = std::decay_t<decltype(value)>;
@@ -408,50 +578,9 @@ std::shared_ptr<ShaderProgram> MaterialAssetLoader::CreateShader(
     return shader;
 }
 
-std::shared_ptr<Texture> MaterialAssetLoader::LoadTexture(
-    const TextureAssetDesc& desc) const {
-    const std::string normalizedPath =
-        m_fileSystem.NormalizeAssetPath(desc.path);
-    if (normalizedPath.empty()) {
-        std::cout << "MaterialAssetLoader: texture asset path is invalid: "
-                  << desc.path << '\n';
-        return nullptr;
-    }
-
-    TextureCacheKey key{
-        normalizedPath,
-        desc.loadOptions.srgb,
-        desc.loadOptions.flipVertically,
-        desc.loadOptions.generateMipmaps,
-        desc.samplerDesc};
-    const auto cached = m_textureCache.find(key);
-    if (cached != m_textureCache.end()) {
-        if (auto texture = cached->second.lock()) {
-            return texture;
-        }
-        m_textureCache.erase(cached);
-    }
-
-    const auto image = LoadAssetImage(
-        m_fileSystem, normalizedPath, desc.loadOptions);
-    if (!image) {
-        return nullptr;
-    }
-    auto texture = m_renderDevice.CreateTexture(
-        image->textureDesc,
-        desc.samplerDesc,
-        image->pixels.data(),
-        image->pixels.size());
-    if (texture) {
-        m_textureCache.insert_or_assign(std::move(key), texture);
-    }
-    return texture;
-}
-
 void MaterialAssetLoader::PruneExpiredCaches() const {
     EraseExpired(m_materialCache);
     EraseExpired(m_shaderCache);
-    EraseExpired(m_textureCache);
 }
 
 void MaterialAssetLoader::LogError(

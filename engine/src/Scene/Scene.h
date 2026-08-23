@@ -5,6 +5,7 @@
 #include "Scene/Components/CameraComponent.h"
 
 #include <memory>
+#include <cstdint>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -12,6 +13,8 @@
 #include <variant>
 
 namespace eng {
+
+class Model;
 
 class Scene {
 public:
@@ -48,6 +51,12 @@ public:
     T* CreateObject(std::string name) {
         return CreateObject<T>(std::move(name), nullptr);
     }
+
+    // Creates an instance root under parent, then reproduces the ModelNode
+    // hierarchy below it. Mesh and Material resources remain shared.
+    GameObject* InstantiateModel(
+        const std::shared_ptr<Model>& model,
+        GameObject* parent = nullptr);
 
     // During Update, true means that the request was accepted for staging;
     // earlier queued commands may still make it invalid before command flush.
@@ -108,6 +117,11 @@ private:
         std::string name, GameObject* parent);
     // called only in Update()
     void FlushPendingCommands();
+
+    GameObject* ProcessModelNode(
+        const Model& model,
+        uint32_t nodeIndex,
+        GameObject* parent);
 
     ObjectContainer m_objects;
     CameraComponent* m_mainCamera = nullptr;

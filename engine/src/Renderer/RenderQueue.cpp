@@ -3,12 +3,23 @@
 #include "Renderer/Material.h"
 #include "Renderer/Mesh.h"
 #include "Renderer/ShaderProgram.h"
+#include "Renderer/RenderDevice.h"
 
 #include <algorithm>
 #include <iostream>
 #include <utility>
 
 namespace eng {
+
+namespace {
+    float ViewSpaceDepth(
+        const glm::mat4& model,
+        const glm::mat4& cameraView) {
+        const glm::vec4 position =
+            cameraView * model * glm::vec4{0.0f, 0.0f, 0.0f, 1.0f};
+        return position.z;
+    }
+}
 
 RenderCommand::RenderCommand(
     std::shared_ptr<Mesh> meshValue,
@@ -65,7 +76,7 @@ RenderQueue::ShaderState& RenderQueue::GetShaderState(
     return m_shaderStates.back();
 }
 
-void RenderQueue::Execute() {
+void RenderQueue::Execute(RenderDevice& device) {
     m_shaderStates.erase(
         std::remove_if(
             m_shaderStates.begin(),
@@ -74,6 +85,28 @@ void RenderQueue::Execute() {
         m_shaderStates.end());
 
     for (const auto& view : m_views) {
+
+        std::stable_sort(view->commands.begin(), view->commands.end(),
+            [&view](const QueuedCommand& queued1, const QueuedCommand& queued2) {
+                const RenderCommand& cmd1 = queued1.command;
+                const RenderCommand& cmd2 = queued2.command;
+                if (cmd1.phase != cmd2.phase)
+                    return static_cast<uint8_t>(cmd1.phase) <
+                        static_cast<uint8_t>(cmd2.phase);
+
+                if (cmd1.renderOrder != cmd2.renderOrder)
+                    return cmd1.renderOrder < cmd2.renderOrder;
+
+                if (cmd1.phase == RenderPhase::Transparent) {
+                    // The camera looks down -Z in view space. More negative
+                    // values are farther away and must be rendered first.
+                    return ViewSpaceDepth(cmd1.modelMatrix, view->camera.view) <
+                        ViewSpaceDepth(cmd2.modelMatrix, view->camera.view);
+                }
+                return false;
+            }
+        );
+
         std::vector<ShaderProgram*> cameraDataAppliedShaders;
 
         for (const auto& queued : view->commands) {
@@ -127,12 +160,36 @@ void RenderQueue::Execute() {
             // set modelMatrix
             shader->SetMat4f("uModel", command.modelMatrix);
 
+            ApplyRenderState(command.material->GetRenderState(), device);
+
             command.mesh->Bind();
             command.mesh->Draw();
         }
     }
 
     Clear();
+}
+
+void RenderQueue::ApplyRenderState(const RenderState& state,
+    RenderDevice& device) {
+    if (!m_renderStateCacheValid) {
+        device.SetRenderState(state);
+        m_currentRenderState = state;
+        m_renderStateCacheValid = true;
+        return;
+    }
+    if (state.depth != m_currentRenderState.depth) {
+        device.SetDepthState(state.depth);
+        m_currentRenderState.depth = state.depth;
+    }
+    if (state.blend != m_currentRenderState.blend) {
+        device.SetBlendState(state.blend);
+        m_currentRenderState.blend = state.blend;
+    }
+    if (state.rasterizer != m_currentRenderState.rasterizer) {
+        device.SetRasterizerState(state.rasterizer);
+        m_currentRenderState.rasterizer = state.rasterizer;
+    }
 }
 
 void RenderQueue::Clear() {
@@ -145,6 +202,7 @@ void RenderQueue::InvalidateStateCache() {
     m_currentTextureMaterial.reset();
     m_currentTextureMaterialRevision = 0;
     m_shaderStates.clear();
+    m_renderStateCacheValid = false;
 }
 
 } // namespace eng

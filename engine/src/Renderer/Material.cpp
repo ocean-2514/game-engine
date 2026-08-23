@@ -19,6 +19,75 @@ void Material::SetShaderProgram(std::shared_ptr<ShaderProgram> shaderProgram) {
     IncrementRevision();
 }
 
+SurfaceMode Material::GetSurfaceMode() const {
+    return m_surfaceMode;
+}
+
+void Material::SetSurfaceMode(SurfaceMode mode) {
+    const RenderState defaults = MakeRenderState(mode);
+    RenderState state = m_renderState;
+    state.blend = defaults.blend;
+    state.depth.depthWriteEnable = defaults.depth.depthWriteEnable;
+    const RenderPhase phase = GetDefaultRenderPhase(mode);
+    if (m_surfaceMode == mode && m_renderState == state &&
+        m_renderPhase == phase) {
+        return;
+    }
+    m_surfaceMode = mode;
+    m_renderState = state;
+    m_renderPhase = phase;
+    IncrementRevision();
+}
+
+RenderPhase Material::GetRenderPhase() const {
+    return m_renderPhase;
+}
+
+void Material::SetRenderPhase(RenderPhase phase) {
+    if (m_renderPhase == phase) return;
+    m_renderPhase = phase;
+    IncrementRevision();
+}
+
+int32_t Material::GetDefaultRenderOrder() const {
+    return m_defaultRenderOrder;
+}
+
+void Material::SetDefaultRenderOrder(int32_t order) {
+    if (m_defaultRenderOrder == order) return;
+    m_defaultRenderOrder = order;
+    IncrementRevision();
+}
+
+const RenderState& Material::GetRenderState() const {
+    return m_renderState;
+}
+
+void Material::SetRenderState(const RenderState& state) {
+    if (m_renderState == state) return;
+    m_renderState = state;
+    IncrementRevision();
+}
+
+void Material::SetDepthState(const DepthState& state) {
+    if (m_renderState.depth == state) return;
+    m_renderState.depth = state;
+    IncrementRevision();
+}
+
+void Material::SetBlendState(const BlendState& state) {
+    if (m_renderState.blend == state) return;
+    m_renderState.blend = state;
+    IncrementRevision();
+}
+
+void Material::SetRasterizerState(const RasterizerState& state) {
+    if (m_renderState.rasterizer == state) return;
+    m_renderState.rasterizer = state;
+    IncrementRevision();
+}
+
+
 void Material::SetParam(std::string name, int value) {
     SetParamValue(std::move(name), value);
 }
@@ -58,6 +127,18 @@ void Material::SetTexture(std::string name, std::shared_ptr<Texture> texture) {
     }
     m_textures.insert_or_assign(std::move(name), std::move(texture));
     IncrementRevision();
+}
+
+std::shared_ptr<Material> Material::Clone() const {
+    auto material = std::make_shared<Material>(m_shaderProgram);
+    material->m_surfaceMode = m_surfaceMode;
+    material->m_renderPhase = m_renderPhase;
+    material->m_defaultRenderOrder = m_defaultRenderOrder;
+    material->m_renderState = m_renderState;
+    material->m_params = m_params;
+    material->m_textures = m_textures;
+    material->m_revision = m_revision;
+    return material;
 }
 
 

@@ -28,6 +28,7 @@ target_compile_definitions(my_engine PRIVATE SHADER_DIR="${CMAKE_CURRENT_SOURCE_
 #copy dll
 set(DLL_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/bin/glfw3.dll
+    ${CMAKE_CURRENT_SOURCE_DIR}/bin/libassimp-6.dll
 )
 
 foreach(DLL ${DLL_FILES})

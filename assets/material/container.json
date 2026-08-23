@@ -1,6 +1,9 @@
 {
     "version": 1,
     "name": "container",
+    "render": {
+        "surface": "opaque"
+    },
     "shader": {
         "vertex": "shader/vs.glsl",
         "fragment": "shader/fs.glsl"

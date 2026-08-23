@@ -10,7 +10,9 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/quaternion.hpp>
+
 #include "Scene/Component.h"
 
 namespace eng {
@@ -44,6 +46,7 @@ public:
     void SetRotation(const glm::quat& rotation);
     const glm::vec3& GetScale() const;
     void SetScale(const glm::vec3& scale);
+    void SetLocalTransform(const glm::mat4& tranform);
     glm::mat4 GetLocalTransform() const;
     glm::mat4 GetWorldTransform() const;
     glm::vec3 GetWorldPosition() const;

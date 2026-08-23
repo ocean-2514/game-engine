@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include "Application.h"
+#include "Assets/AssetManager.h"
 #include "Platform/Window.h"
 
 #include <iostream>
@@ -48,10 +49,14 @@ bool Engine::Init(Application* app, int width, int height) {
         return false;
     }
 
+    m_assetManager = std::make_unique<AssetManager>(
+        m_fileSystem, *m_renderDevice);
+
     if (!m_application->Init()) {
         std::cout << "Engine::Init: application initialization failed\n";
         m_application->Destroy();
         m_application.reset();
+        m_assetManager.reset();
         m_renderDevice.reset();
         m_window.reset();
         return false;
@@ -77,7 +82,7 @@ void Engine::Run() {
         m_application->Update(deltaTime);
         m_application->Render(m_renderQueue);
 
-        m_renderQueue.Execute();
+        m_renderQueue.Execute(*m_renderDevice);
 
         m_window->SwapBuffers();
 
@@ -95,6 +100,7 @@ void Engine::Destroy() {
     // window's OpenGL context is still alive.
     m_renderQueue.Clear();
     m_renderQueue.InvalidateStateCache();
+    m_assetManager.reset();
     m_renderDevice.reset();
     m_window.reset();
 }
@@ -125,6 +131,10 @@ RenderQueue& Engine::GetRenderQueue() {
 
 FileSystem& Engine::GetFileSystem() {
     return m_fileSystem;
+}
+
+AssetManager& Engine::GetAssetManager() {
+    return *m_assetManager;
 }
 
 Engine::~Engine() {

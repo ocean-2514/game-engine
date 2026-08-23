@@ -1,6 +1,8 @@
 #ifndef O_TEXTURE
 #define O_TEXTURE
 
+#include "Renderer/TextureDesc.h"
+
 namespace eng
 {
     
@@ -17,6 +19,8 @@ public:
 
     int GetWidth() const;
     int GetHeight() const;
+    TextureFormat GetFormat() const;
+    bool HasAlphaChannel() const;
     virtual bool IsValid() const = 0;
 
 protected:
@@ -24,6 +28,7 @@ protected:
 
     int m_width = 0;
     int m_height = 0;
+    TextureFormat m_format = TextureFormat::RGBA8;
 };
 
 

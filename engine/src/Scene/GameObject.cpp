@@ -1,6 +1,8 @@
 #include "Scene/GameObject.h"
 
 #include <utility>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <iostream>
 
 namespace eng {
 
@@ -150,6 +152,26 @@ void GameObject::SetScale(const glm::vec3& scale) {
     m_scale = scale;
 }
 
+void GameObject::SetLocalTransform(const glm::mat4& transform) {
+    glm::vec3 position;
+    glm::quat rotation;
+    glm::vec3 scale;
+    glm::vec3 skew;
+    glm::vec4 perspective;
+
+    const bool success = glm::decompose(
+        transform, scale, rotation, position, skew, perspective);
+
+    if (success) {
+        SetPosition(position);
+        SetRotation(glm::normalize(rotation));
+        SetScale(scale);
+    } else {
+        std::cout << "GameObject::SetLocalTransform: failed to decompose matrix"
+            << std::endl;
+    }
+}
+
 glm::mat4 GameObject::GetLocalTransform() const {
     glm::mat4 model{1.0f};
     model = glm::translate(model, m_position);
@@ -168,11 +190,7 @@ glm::mat4 GameObject::GetWorldTransform() const {
 }
 
 glm::vec3 GameObject::GetWorldPosition() const {
-    if (m_parent == nullptr) {
-        return m_position;
-    } else {
-        return m_parent->GetWorldPosition() + m_position;
-    }
+    return glm::vec3(GetWorldTransform()[3]);
 }
 
 glm::quat GameObject::GetWorldRotation() const {

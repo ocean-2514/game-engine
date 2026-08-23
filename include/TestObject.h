@@ -10,7 +10,7 @@ public:
     TestObject(
         Shape shape,
         glm::vec3 color,
-        eng::MaterialAssetLoader& materialAssetLoader);
+        eng::AssetManager& assetManager);
     
 protected:
     void OnUpdate(float deltaTime) override;

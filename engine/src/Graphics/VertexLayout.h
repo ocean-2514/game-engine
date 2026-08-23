@@ -27,12 +27,12 @@ struct VertexLayout {
     std::vector<VertexElement> elements;
     uint32_t stride = 0;    //size of a vertex
 
-    //populate the offset of each element and stride of a layout
-    //assuming that vertex attribute data is compactly arranged
+    // populate the offset of each element and stride of a layout
+    // assuming that vertex attribute data is compactly arranged
     void Populate();
-    //assuming that vertex attribute data is compactly arranged
+    // assuming that vertex attribute data is compactly arranged
     void PopulateOffset();
-    //assuming that vertex attribute data is compactly arranged
+    // assuming that vertex attribute data is compactly arranged
     void PopulateStride();
 };
 

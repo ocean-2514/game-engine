@@ -17,6 +17,69 @@ const Window* g_loaderWindow = nullptr;
 void* LoadOpenGLProc(const char* name) {
     return g_loaderWindow != nullptr ? g_loaderWindow->GetGraphicsProcAddress(name) : nullptr;
 }
+
+GLboolean ToOpenGLBoolean(bool flag) {
+    return flag ? GL_TRUE : GL_FALSE;
+}
+
+
+GLenum ToOpenGLCompareOp(CompareOp op) {
+    switch (op)
+    {
+        case CompareOp::Less:           return GL_LESS;
+        case CompareOp::LessEqual:      return GL_LEQUAL;
+        case CompareOp::Greater:        return GL_GREATER;
+        case CompareOp::GreaterEqual:   return GL_GEQUAL;
+        case CompareOp::Never:          return GL_NEVER;
+        case CompareOp::Always:         return GL_ALWAYS;
+        case CompareOp::Equal:          return GL_EQUAL;
+        case CompareOp::NotEqual:       return GL_NOTEQUAL;
+        default:                        return GL_LESS;
+    }
+}
+
+GLenum ToOpenGLBlendFactor(BlendFactor factor) {
+    switch (factor)
+    {
+        case BlendFactor::One:                  return GL_ONE;
+        case BlendFactor::Zero:                 return GL_ZERO;
+        case BlendFactor::SourceAlpha:          return GL_SRC_ALPHA;
+        case BlendFactor::OneMinusSourceAlpha:  return GL_ONE_MINUS_SRC_ALPHA;
+        default:                                return GL_ZERO;
+    }
+}
+
+GLenum ToOpenGLBlendOp(BlendOp op) {
+    switch (op)
+    {
+        case BlendOp::Add:              return GL_FUNC_ADD;
+        case BlendOp::Subtract:         return GL_FUNC_SUBTRACT;
+        case BlendOp::ReverseSubtract:  return GL_FUNC_REVERSE_SUBTRACT;
+        case BlendOp::Min:              return GL_MIN;
+        case BlendOp::Max:              return GL_MAX;
+        default:                        return GL_FUNC_ADD;
+    }
+}
+
+GLenum ToOpenGLCullMode(CullMode mode) {
+    switch (mode)
+    {
+        case CullMode::Front:           return GL_FRONT;
+        case CullMode::Back:            return GL_BACK;
+        case CullMode::None:            return GL_BACK;
+        default:                        return GL_BACK;
+    }
+}
+
+GLenum ToOpenGLFrontFace(FrontFace frontFace) {
+    switch (frontFace)
+    {
+        case FrontFace::Clockwise:          return GL_CW;
+        case FrontFace::CounterClockwise:   return GL_CCW;
+        default:                            return GL_CCW;
+    }
+}
+
 } // namespace
 
 bool OpenGLRenderDevice::Init(const Window& window) {
@@ -29,12 +92,15 @@ bool OpenGLRenderDevice::Init(const Window& window) {
         return false;
     }
 
-    glEnable(GL_DEPTH_TEST);
+    SetRenderState(RenderState{});
+
     return true;
 }
 
 void OpenGLRenderDevice::Clear(const ClearDesc& desc) {
     GLbitfield mask = 0;
+    GLboolean previousDepthMask = GL_TRUE;
+    glGetBooleanv(GL_DEPTH_WRITEMASK, &previousDepthMask);
 
     if (HasClearBuffer(desc.buffers, ClearBuffer::Color)) {
         glClearColor(
@@ -45,6 +111,7 @@ void OpenGLRenderDevice::Clear(const ClearDesc& desc) {
         mask |= GL_COLOR_BUFFER_BIT;
     }
     if (HasClearBuffer(desc.buffers, ClearBuffer::Depth)) {
+        glDepthMask(GL_TRUE);
         glClearDepth(static_cast<GLdouble>(desc.depth));
         mask |= GL_DEPTH_BUFFER_BIT;
     }
@@ -55,6 +122,10 @@ void OpenGLRenderDevice::Clear(const ClearDesc& desc) {
 
     if (mask != 0) {
         glClear(mask);
+    }
+
+    if (HasClearBuffer(desc.buffers, ClearBuffer::Depth)) {
+        glDepthMask(previousDepthMask);
     }
 }
 
@@ -86,6 +157,46 @@ std::shared_ptr<Texture> OpenGLRenderDevice::CreateTexture(
         textureDesc, samplerDesc, pixels, byteCount);
     return texture->IsValid() ? std::move(texture) : nullptr;
 }
+
+void OpenGLRenderDevice::SetDepthState(const DepthState& state) {
+    glDepthMask(ToOpenGLBoolean(state.depthWriteEnable));
+    if (!state.depthTestEnable) {
+        glDisable(GL_DEPTH_TEST);
+        return;
+    }
+
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(ToOpenGLCompareOp(state.depthCompareOp));
+}
+
+void OpenGLRenderDevice::SetBlendState(const BlendState& state) {
+    if (!state.blendEnable) {
+        glDisable(GL_BLEND);
+        return;
+    }
+
+    glEnable(GL_BLEND);
+    glBlendFunc(ToOpenGLBlendFactor(state.sourceColor),
+        ToOpenGLBlendFactor(state.destinationColor));
+    glBlendEquation(ToOpenGLBlendOp(state.colorOperation));
+}
+
+void OpenGLRenderDevice::SetRasterizerState(const RasterizerState& state) {
+    if (state.cullMode == CullMode::None) {
+        glDisable(GL_CULL_FACE);
+        return;
+    }
+    glEnable(GL_CULL_FACE);
+    glCullFace(ToOpenGLCullMode(state.cullMode));
+    glFrontFace(ToOpenGLFrontFace(state.frontFace));
+}
+
+void OpenGLRenderDevice::SetRenderState(const RenderState& state) {
+    SetDepthState(state.depth);
+    SetBlendState(state.blend);
+    SetRasterizerState(state.rasterizer);
+}
+
 
 
 } // namespace eng
