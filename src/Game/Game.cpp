@@ -24,12 +24,17 @@ bool Game::Init() {
 
     camera = scene.CreateObject<Camera>("MainCamera", nullptr);
 
-    const auto model = assets.LoadModel("model/odette/奥黛塔.pmx"); 
-    eng::GameObject* modelObj = scene.InstantiateModel(model);
-    if (modelObj) { 
-        modelObj->SetScale(glm::vec3{0.1f});
-        modelObj->SetPosition(glm::vec3{0.0f, 1.0f, -1.0f});
-    }
+    auto* light = scene.CreateObject("directionalLight");
+    light->AddComponent<eng::DirectionalLightComponent>();
+    light->Rotate(10.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
+
+    const auto model = assets.LoadModel("model/walking/Walking.fbx"); 
+    // const auto model = assets.LoadModel("model/odette/奥黛塔.pmx"); 
+    // eng::GameObject* modelObj = scene.InstantiateModel(model);
+    // if (modelObj) { 
+    //     modelObj->SetScale(glm::vec3{0.1f});
+    //     modelObj->SetPosition(glm::vec3{0.0f, 1.0f, -1.0f});
+    // }
 
     return true;
 }

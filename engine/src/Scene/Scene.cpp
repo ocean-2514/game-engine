@@ -1,5 +1,8 @@
 #include "Scene/Scene.h"
 #include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/DirectionalLightComponent.h"
+#include "Scene/Components/SpotLightComponent.h"
+#include "Scene/Components/PointLightComponent.h"
 #include "Renderer/RenderQueue.h"
 #include "Renderer/Model.h"
 #include <utility>
@@ -44,9 +47,15 @@ void Scene::Render(RenderQueue& queue, float aspect) {
 void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect) {
     if (!IsValidComponent(camera)) return;
 
-    if (!queue.BeginView({
+    CameraData cameraData{
+        camera->GetPosition(),
         camera->GetViewMatrix(),
         camera->GetProjectionMatrix(aspect)
+    };
+    LightingData lightingData{};
+    CollectLightingData(lightingData);
+    if (!queue.BeginView({
+        cameraData, lightingData
     })) {
         return;
     }
@@ -314,6 +323,57 @@ GameObject* Scene::ProcessModelNode(
 
     return obj;
 }
+
+void Scene::CollectLightingData(LightingData& data) const {
+    for (const auto& object : m_objects) {
+        CollectLightingDataRecursive(object.get(), data);
+    }
+}
+
+void Scene::CollectLightingDataRecursive(const GameObject* object, 
+    LightingData& data) const {
+    if (object == nullptr || !object->IsAlive()) {
+        return;
+    }
+    
+    if (const auto* directionalLight = 
+        object->GetComponent<DirectionalLightComponent>(); 
+        directionalLight != nullptr) {
+        data.directionalLights.push_back({
+            directionalLight->GetDirection(),
+            directionalLight->GetIntensity(),
+            directionalLight->GetColor()
+        });
+    }
+    if (const auto* pointLight = 
+        object->GetComponent<PointLightComponent>();
+        pointLight != nullptr) {
+        data.pointLights.push_back({
+            pointLight->GetPosition(),
+            pointLight->GetRange(), 
+            pointLight->GetColor(), 
+            pointLight->GetIntensity()
+        });
+    }
+    if (const auto* spotLight = 
+        object->GetComponent<SpotLightComponent>();
+        spotLight != nullptr) {
+        data.spotLights.push_back({
+            spotLight->GetPosition(),
+            spotLight->GetRange(), 
+            spotLight->GetDirection(), 
+            spotLight->GetIntensity(), 
+            spotLight->GetColor(), 
+            spotLight->GetInnerConeCos(),
+            spotLight->GetOuterConeCos()
+        });
+    } 
+
+    for (const auto& child : object->m_children) {
+        CollectLightingDataRecursive(child.get(), data);
+    }
+}
+    
 
 
 CameraComponent* Scene::GetMainCamera() {

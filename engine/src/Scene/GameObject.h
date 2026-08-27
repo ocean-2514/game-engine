@@ -44,6 +44,8 @@ public:
     const glm::quat& GetRotation() const;
     //rotation angle expressed in degrees
     void SetRotation(const glm::quat& rotation);
+    // angle expressed in degrees
+    void Rotate(float angle, const glm::vec3& axis);
     const glm::vec3& GetScale() const;
     void SetScale(const glm::vec3& scale);
     void SetLocalTransform(const glm::mat4& tranform);

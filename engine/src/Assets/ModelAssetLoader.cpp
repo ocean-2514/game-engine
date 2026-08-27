@@ -261,9 +261,10 @@ std::shared_ptr<Material> CreateMaterial(
         surface == SurfaceMode::Masked ? 1 : 0);
     material->SetParam("uAlphaCutoff", imported.alphaCutoff);
     material->SetParam("uHasOpacityMap", opacityTexture ? 1 : 0);
-    ApplyImportedTexture(
+    const auto specularTexture = ApplyImportedTexture(
         *material, "uSpecularMap", imported.specularTexture,
         context.textureLoader);
+    material->SetParam("uHasSpecularMap", specularTexture ? 1 : 0);
     ApplyImportedTexture(
         *material, "uNormalMap", imported.normalTexture,
         context.textureLoader);
@@ -361,7 +362,11 @@ uint32_t ProcessMesh(uint32_t sourceIndex, ImportContext& context) {
         return InvalidIndex;
     }
 
-    const uint32_t index = context.model.AddMesh(
+    if (source.HasBones()) {
+        std::cout << source.mBones[0]->mName.C_Str() << ' ' << source.mBones[0]->mNumWeights << std::endl;
+    }
+
+    const uint32_t index = context.model.AddMesh( 
         {source.mName.C_Str(), std::move(mesh), materialIndex});
     context.meshIndices.emplace(sourceIndex, index);
     return index;

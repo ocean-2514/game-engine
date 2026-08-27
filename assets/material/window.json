@@ -13,7 +13,7 @@
     },
     "parameters": [
         {
-            "name": "objTexture",
+            "name": "uDiffuseMap",
             "type": "texture2D",
             "value": "texture/window.png"
         }

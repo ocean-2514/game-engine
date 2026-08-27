@@ -3,6 +3,7 @@
 
 #include "Scene/GameObject.h"
 #include "Scene/Components/CameraComponent.h"
+#include "Common.h"
 
 #include <memory>
 #include <cstdint>
@@ -122,6 +123,9 @@ private:
         const Model& model,
         uint32_t nodeIndex,
         GameObject* parent);
+    void CollectLightingData(LightingData& data) const;
+    void CollectLightingDataRecursive(const GameObject* object, 
+        LightingData& data) const;
 
     ObjectContainer m_objects;
     CameraComponent* m_mainCamera = nullptr;

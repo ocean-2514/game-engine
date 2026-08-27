@@ -90,6 +90,14 @@ set(ENGINE_SRC
     src/Common.h
     src/Renderer/RenderState.cpp
     src/Renderer/RenderState.h
+    src/Scene/Components/LightComponent.h
+    src/Scene/Components/LightComponent.cpp
+    src/Scene/Components/SpotLightComponent.cpp
+    src/Scene/Components/SpotLightComponent.h
+    src/Scene/Components/DirectionalLightComponent.cpp
+    src/Scene/Components/DirectionalLightComponent.h
+    src/Scene/Components/PointLightComponent.cpp
+    src/Scene/Components/PointLightComponent.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

@@ -27,10 +27,16 @@ struct RenderCommand {
     int32_t renderOrder = 0;
 };
 
+struct RenderViewData
+{
+    CameraData camera;
+    LightingData lighting;
+};
+
 class RenderQueue {
 public:
 
-    bool BeginView(const CameraData& camera);
+    bool BeginView(const RenderViewData& camera);
     void Submit(RenderCommand command);
     void EndView();
     void Execute(RenderDevice& device);
@@ -46,7 +52,7 @@ private:
     };
 
     struct RenderView {
-        CameraData camera;
+        RenderViewData data;
         std::vector<QueuedCommand> commands;
     };
 

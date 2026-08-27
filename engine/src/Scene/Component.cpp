@@ -1,4 +1,5 @@
 #include "Scene/Component.h"
+#include "Scene/GameObject.h"
 
 #include <atomic>
 
@@ -16,6 +17,10 @@ GameObject* Component::GetOwner() {
 
 const GameObject* Component::GetOwner() const {
     return m_owner;
+}
+
+glm::vec3 Component::GetPosition() const {
+    return m_owner->GetWorldPosition();
 }
 
 void Component::MarkForDestroy() {

@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <glm/glm.hpp>
 
 namespace eng {
 
@@ -23,6 +24,7 @@ public:
 
     GameObject* GetOwner();
     const GameObject* GetOwner() const;
+    glm::vec3 GetPosition() const;
     void MarkForDestroy();
     bool IsAlive() const;
     virtual TypeId GetTypeId() const noexcept = 0;

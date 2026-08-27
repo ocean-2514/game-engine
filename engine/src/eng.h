@@ -24,5 +24,8 @@
 #include "Scene/Components/MeshComponent.h"
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/PlayerControllerComponent.h"
+#include "Scene/Components/DirectionalLightComponent.h"
+#include "Scene/Components/SpotLightComponent.h"
+#include "Scene/Components/PointLightComponent.h"
 
 #endif

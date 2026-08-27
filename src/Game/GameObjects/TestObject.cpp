@@ -20,7 +20,7 @@ TestObject::TestObject(
             break;
     }
 
-    material = assetManager.LoadMaterial("material/window.json");
+    material = assetManager.LoadMaterial("material/container2.json");
 
     if (mesh && material) {
         auto* meshComp = AddComponent<eng::MeshComponent>(mesh, material);

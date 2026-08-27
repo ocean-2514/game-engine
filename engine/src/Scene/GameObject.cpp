@@ -144,6 +144,10 @@ void GameObject::SetRotation(const glm::quat& rotation) {
     m_rotation = rotation;
 }
 
+void GameObject::Rotate(float angle, const glm::vec3& axis) {
+    m_rotation *= glm::angleAxis(glm::radians(angle), glm::normalize(axis));
+}
+
 const glm::vec3& GameObject::GetScale() const {
     return m_scale;
 }

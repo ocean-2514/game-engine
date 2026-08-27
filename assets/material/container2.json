@@ -1,0 +1,28 @@
+{
+    "version": 1,
+    "name": "container2",
+    "render": {
+        "surface": "opaque"
+    },
+    "shader": {
+        "vertex": "shader/vs.glsl",
+        "fragment": "shader/fs.glsl"
+    },
+    "parameters": [
+        {
+            "name": "uDiffuseMap",
+            "type": "texture2D",
+            "value": "texture/container2.png"
+        },
+        {
+            "name": "uSpecularMap",
+            "type": "texture2D",
+            "value": "texture/container2_specular.png"
+        },
+        {
+            "name": "uHasSpecularMap",
+            "type": "int", 
+            "value": 1
+        }
+    ]
+}
