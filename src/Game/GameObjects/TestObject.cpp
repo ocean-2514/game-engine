@@ -21,6 +21,7 @@ TestObject::TestObject(
     }
 
     material = assetManager.LoadMaterial("material/container2.json");
+    // material->SetParam("uHasDiffuseMap", 1); 
 
     if (mesh && material) {
         auto* meshComp = AddComponent<eng::MeshComponent>(mesh, material);

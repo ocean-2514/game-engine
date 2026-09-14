@@ -22,6 +22,8 @@ enum class AlphaTextureFallback {
 struct ModelLoadOptions {
     std::string materialTemplatePath = "material/model-default.json";
     bool importMaterials = true;
+    bool importSkeletons = true;
+    bool importAnimations = true;
     AlphaTextureFallback alphaTextureFallback =
         AlphaTextureFallback::Masked;
 };

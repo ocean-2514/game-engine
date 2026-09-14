@@ -27,5 +27,7 @@
 #include "Scene/Components/DirectionalLightComponent.h"
 #include "Scene/Components/SpotLightComponent.h"
 #include "Scene/Components/PointLightComponent.h"
+#include "Scene/Components/AnimationComponent.h"
+#include "Scene/Components/SkinnedMeshComponent.h"
 
 #endif

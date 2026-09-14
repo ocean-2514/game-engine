@@ -10,7 +10,9 @@
 #include <vector>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#define GLM_ENABLE_EXPERIMENTAL
+#ifndef GLM_ENABLE_EXPERIMENTAL
+    #define GLM_ENABLE_EXPERIMENTAL
+#endif
 #include <glm/gtx/quaternion.hpp>
 
 #include "Scene/Component.h"
@@ -37,6 +39,7 @@ public:
     std::size_t GetChildCount() const;
     GameObject* GetChild(std::size_t index);
     const GameObject* GetChild(std::size_t index) const;
+    GameObject* GetChildByName(const std::string& name);
 
     const glm::vec3& GetPosition() const;
     void SetPosition(const glm::vec3& position);

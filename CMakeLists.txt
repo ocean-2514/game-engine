@@ -10,6 +10,9 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(MY_ENGINE_SRC
     src/main.cpp
     src/Game/Game.cpp
+    src/Game/Factory/ModelFactory.cpp
+    src/Game/Scripts/ThirdPerspectiveController.cpp
+    src/Game/Entities/Player.cpp
     src/Game/GameObjects/TestObject.cpp
     src/Game/GameObjects/Camera.cpp
 )

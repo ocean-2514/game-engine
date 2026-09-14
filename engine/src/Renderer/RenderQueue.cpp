@@ -4,6 +4,7 @@
 #include "Renderer/Mesh.h"
 #include "Renderer/ShaderProgram.h"
 #include "Renderer/RenderDevice.h"
+#include "Renderer/Animation.h"
 
 #include <algorithm>
 #include <iostream>
@@ -232,6 +233,23 @@ void RenderQueue::Execute(RenderDevice& device) {
             const glm::mat3 normalMatrix = glm::transpose(
                 glm::inverse(glm::mat3(command.modelMatrix)));
             shader->SetMat3f("uNormalMatrix", normalMatrix);
+
+            const bool skinned = command.skeletonPose &&
+                !command.skeletonPose->skinMatrices.empty();
+            shader->SetInt("uSkinned", skinned ? 1 : 0);
+            if (skinned) {
+                if (command.skeletonPose->skinMatrices.size() >
+                    AnimationLimits::MaxBones) {
+                    std::cout << "RenderQueue::Execute: skeleton exceeds shader bone limit\n";
+                    continue;
+                }
+                for (std::size_t i = 0;
+                     i < command.skeletonPose->skinMatrices.size(); ++i) {
+                    shader->SetMat4f(
+                        "uBones[" + std::to_string(i) + "]",
+                        command.skeletonPose->skinMatrices[i]);
+                }
+            }
 
             ApplyRenderState(command.material->GetRenderState(), device);
 

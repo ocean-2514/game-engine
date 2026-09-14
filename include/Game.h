@@ -3,6 +3,7 @@
 
 #include "eng.h"
 #include "Camera.h"
+#include "Player.h"
 
 class Game : public eng::Application {
 public:
@@ -18,6 +19,7 @@ public:
     std::shared_ptr<eng::Material> material;
     eng::Scene scene;
     Camera* camera;
+    Player player;
 
 private:
     float xoffset = 0.0f;

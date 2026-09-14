@@ -98,6 +98,11 @@ set(ENGINE_SRC
     src/Scene/Components/DirectionalLightComponent.h
     src/Scene/Components/PointLightComponent.cpp
     src/Scene/Components/PointLightComponent.h
+    src/Scene/Components/AnimationComponent.cpp
+    src/Scene/Components/AnimationComponent.h
+    src/Renderer/Animation.h
+    src/Scene/Components/SkinnedMeshComponent.cpp
+    src/Scene/Components/SkinnedMeshComponent.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

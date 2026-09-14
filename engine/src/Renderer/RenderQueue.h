@@ -15,6 +15,7 @@ class Material;
 class Mesh;
 class ShaderProgram;
 class RenderDevice;
+struct SkeletonPose;
 
 struct RenderCommand {
     RenderCommand(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material, 
@@ -23,6 +24,7 @@ struct RenderCommand {
     std::shared_ptr<Mesh> mesh;
     std::shared_ptr<Material> material;
     glm::mat4 modelMatrix;
+    std::shared_ptr<const SkeletonPose> skeletonPose;
     RenderPhase phase = RenderPhase::Opaque;
     int32_t renderOrder = 0;
 };

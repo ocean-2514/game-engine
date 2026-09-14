@@ -16,6 +16,7 @@
 namespace eng {
 
 class Model;
+struct SkeletonPose;
 
 class Scene {
 public:
@@ -122,7 +123,9 @@ private:
     GameObject* ProcessModelNode(
         const Model& model,
         uint32_t nodeIndex,
-        GameObject* parent);
+        GameObject* parent,
+        const std::shared_ptr<SkeletonPose>& pose,
+        GameObject* modelRoot);
     void CollectLightingData(LightingData& data) const;
     void CollectLightingDataRecursive(const GameObject* object, 
         LightingData& data) const;

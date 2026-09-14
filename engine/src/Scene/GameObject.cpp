@@ -128,6 +128,19 @@ const GameObject* GameObject::GetChild(std::size_t index) const {
     return index < m_children.size() ? m_children[index].get() : nullptr;
 }
 
+GameObject* GameObject::GetChildByName(const std::string& name) {
+    if (m_name == name) return this;
+
+    for (const auto& child : m_children) {
+        auto* obj = child->GetChildByName(name);
+        if (obj) {
+            return obj;
+        }
+    }
+
+    return nullptr;
+}
+
 const glm::vec3& GameObject::GetPosition() const {
     return m_position;
 }

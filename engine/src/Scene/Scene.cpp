@@ -1,5 +1,7 @@
 #include "Scene/Scene.h"
 #include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/AnimationComponent.h"
+#include "Scene/Components/SkinnedMeshComponent.h"
 #include "Scene/Components/DirectionalLightComponent.h"
 #include "Scene/Components/SpotLightComponent.h"
 #include "Scene/Components/PointLightComponent.h"
@@ -274,8 +276,18 @@ GameObject* Scene::InstantiateModel(
     if (!instanceRoot) {
         return nullptr;
     }
+    std::shared_ptr<SkeletonPose> pose;
+    if (!model->GetBones().empty() || !model->GetAnimationClips().empty()) {
+        auto* animation = instanceRoot->AddComponent<AnimationComponent>(model);
+        if (!animation) {
+            instanceRoot->MarkForDestroy();
+            return nullptr;
+        }
+        pose = animation->GetPose();
+    }
     if (!ProcessModelNode(
-            *model, model->GetRootNodeIndex(), instanceRoot)) {
+            *model, model->GetRootNodeIndex(), instanceRoot, pose,
+            instanceRoot)) {
         // In staged mode the dead root will be discarded when commands flush;
         // in immediate mode it will be removed by the next Scene::Update.
         instanceRoot->MarkForDestroy();
@@ -288,7 +300,9 @@ GameObject* Scene::InstantiateModel(
 GameObject* Scene::ProcessModelNode(
     const Model& model,
     uint32_t nodeIndex,
-    GameObject* parent) {
+    GameObject* parent,
+    const std::shared_ptr<SkeletonPose>& pose,
+    GameObject* modelRoot) {
     const auto& nodes = model.GetNodes();
     const auto& meshes = model.GetMeshes();
     const auto& materials = model.GetMaterials();
@@ -308,15 +322,20 @@ GameObject* Scene::ProcessModelNode(
         if (mesh.materialIndex >= materials.size()) return nullptr;
 
         GameObject* meshObj = CreateObject(mesh.name, obj);
-        if (!meshObj || !meshObj->AddComponent<MeshComponent>(
-                mesh.mesh, materials[mesh.materialIndex])) {
+        if (!meshObj) return nullptr;
+        Component* component = mesh.skinned
+            ? static_cast<Component*>(meshObj->AddComponent<SkinnedMeshComponent>(
+                mesh.mesh, materials[mesh.materialIndex], pose, modelRoot))
+            : static_cast<Component*>(meshObj->AddComponent<MeshComponent>(
+                mesh.mesh, materials[mesh.materialIndex]));
+        if (!component) {
             return nullptr;
         }
     }
 
     for (auto childIndex : node.children) {
         if (childIndex >= nodes.size() ||
-            !ProcessModelNode(model, childIndex, obj)) {
+            !ProcessModelNode(model, childIndex, obj, pose, modelRoot)) {
             return nullptr;
         }
     }

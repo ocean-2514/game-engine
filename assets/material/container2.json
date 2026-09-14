@@ -23,6 +23,11 @@
             "name": "uHasSpecularMap",
             "type": "int", 
             "value": 1
+        },
+        {
+            "name": "uHasDiffuseMap",
+            "type": "int", 
+            "value": 1
         }
     ]
 }

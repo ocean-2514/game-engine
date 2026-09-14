@@ -61,8 +61,21 @@ struct ImportContext {
     MaterialAssetLoader& materialLoader;
     std::unordered_map<uint32_t, uint32_t> meshIndices;
     std::unordered_map<uint32_t, uint32_t> materialIndices;
+    std::vector<std::string> boneNodeNames;
     bool failed = false;
 };
+
+glm::vec3 ToGlmVec3(const aiVector3D& value) {
+    return glm::vec3{
+        value.x, value.y, value.z
+    };
+}
+
+glm::quat ToGlmQuat(const aiQuaternion& value) {
+    return glm::quat{
+        value.w, value.x, value.y, value.z
+    };
+}
 
 glm::mat4 ToGlmMatrix(const aiMatrix4x4& value) {
     glm::mat4 result{1.0f};
@@ -89,6 +102,37 @@ void PushVector(std::vector<float>& values, const aiVector3D& vector) {
     values.push_back(vector.x);
     values.push_back(vector.y);
     values.push_back(vector.z);
+}
+
+void PushVector(std::vector<float>& values, const glm::vec4& vec) {
+    values.push_back(vec.x);
+    values.push_back(vec.y);
+    values.push_back(vec.z);
+    values.push_back(vec.w);
+}
+
+void PushVector(std::vector<float>& values, uint32_t vertexIdx,
+    uint32_t boneIdx, float weight) {
+    const std::size_t startIdx = static_cast<std::size_t>(vertexIdx) * 16;
+    if (startIdx + 15 >= values.size() || weight <= 0.0f) return;
+    unsigned int index = 0;
+    for (; index < 4; ++index) {
+        if (values[startIdx + 12 + index] <= 0.0f) {
+            break;
+        }
+    }
+
+    if (index == 4) {
+        index = 0;
+        for (unsigned int i = 1; i < 4; ++i) {
+            if (values[startIdx + 12 + i] < values[startIdx + 12 + index])
+                index = i;
+        }
+        if (weight <= values[startIdx + 12 + index]) return;
+    }
+
+    values[startIdx + 8 + index] = static_cast<float>(boneIdx);
+    values[startIdx + 12 + index] = weight;
 }
 
 std::optional<TextureAssetDesc> ImportTextureDesc(
@@ -260,6 +304,7 @@ std::shared_ptr<Material> CreateMaterial(
     material->SetParam("uAlphaMasked",
         surface == SurfaceMode::Masked ? 1 : 0);
     material->SetParam("uAlphaCutoff", imported.alphaCutoff);
+    material->SetParam("uHasDiffuseMap", diffuseTexture ? 1 : 0);
     material->SetParam("uHasOpacityMap", opacityTexture ? 1 : 0);
     const auto specularTexture = ApplyImportedTexture(
         *material, "uSpecularMap", imported.specularTexture,
@@ -295,7 +340,43 @@ uint32_t ProcessMaterial(uint32_t sourceIndex, ImportContext& context) {
     return index;
 }
 
-uint32_t ProcessMesh(uint32_t sourceIndex, ImportContext& context) {
+void ProcessSingleBone(const aiBone* bone,
+    std::vector<float>& vertices, ImportContext& context) {
+    uint32_t boneIndex = context.model.GetBoneId(bone->mName.C_Str());
+    if (boneIndex == InvalidIndex) {
+        boneIndex = context.model.AddBone({
+            InvalidIndex, ToGlmMatrix(bone->mOffsetMatrix)
+        });
+        context.model.AddBoneMapping(bone->mName.C_Str(), boneIndex);
+        if (context.boneNodeNames.size() <= boneIndex) {
+            context.boneNodeNames.resize(boneIndex + 1);
+        }
+        context.boneNodeNames[boneIndex] = bone->mName.C_Str();
+    }
+
+    for (unsigned int i = 0; i < bone->mNumWeights; ++i) {
+        const auto weight = bone->mWeights[i];
+        PushVector(vertices, weight.mVertexId, boneIndex, weight.mWeight);
+    }
+}
+
+void ProcessBones(const aiMesh* mesh,
+    std::vector<float>& vertices, ImportContext& context) {
+    for (unsigned int i = 0; i < mesh->mNumBones; ++i) {
+        ProcessSingleBone(mesh->mBones[i], vertices, context);
+    }
+    for (unsigned int vertex = 0; vertex < mesh->mNumVertices; ++vertex) {
+        const std::size_t weightOffset = static_cast<std::size_t>(vertex) * 16 + 12;
+        float sum = 0.0f;
+        for (unsigned int i = 0; i < 4; ++i) sum += vertices[weightOffset + i];
+        if (sum > 0.0f) {
+            for (unsigned int i = 0; i < 4; ++i) vertices[weightOffset + i] /= sum;
+        }
+    }
+}
+
+uint32_t ProcessMesh(uint32_t sourceIndex,
+    ImportContext& context) {
     const auto cached = context.meshIndices.find(sourceIndex);
     if (cached != context.meshIndices.end()) {
         return cached->second;
@@ -328,6 +409,10 @@ uint32_t ProcessMesh(uint32_t sourceIndex, ImportContext& context) {
             vertices.push_back(0.0f);
             vertices.push_back(0.0f);
         }
+        if (!context.options.importSkeletons || !source.HasBones()) continue;
+
+        PushVector(vertices, glm::vec4{0.0f});
+        PushVector(vertices, glm::vec4{0.0f});
     }
     for (unsigned int i = 0; i < source.mNumFaces; ++i) {
         const aiFace& face = source.mFaces[i];
@@ -344,11 +429,27 @@ uint32_t ProcessMesh(uint32_t sourceIndex, ImportContext& context) {
         return InvalidIndex;
     }
 
-    VertexLayout layout{{
-        {0, 3},
-        {1, 3},
-        {2, 2}
-    }};
+    VertexLayout layout;
+    if (!context.options.importSkeletons || !source.HasBones()) {
+        layout = VertexLayout{{
+            {0, 3},
+            {1, 3},
+            {2, 2}
+        }};
+    } else {
+        layout = VertexLayout{{
+            {0, 3},
+            {1, 3},
+            {2, 2},
+            // The current Mesh upload API is float-only. Bone IDs are encoded
+            // as exact float integers and converted to ivec4 by the shader.
+            {3, 4},
+            {4, 4}
+        }};
+    }
+    if (source.HasBones() && context.options.importSkeletons) {
+        ProcessBones(&source, vertices, context);
+    }
     layout.Populate();
     auto mesh = context.renderDevice.CreateMesh(layout, vertices, indices);
     if (!mesh || !mesh->IsValid()) {
@@ -362,12 +463,9 @@ uint32_t ProcessMesh(uint32_t sourceIndex, ImportContext& context) {
         return InvalidIndex;
     }
 
-    if (source.HasBones()) {
-        std::cout << source.mBones[0]->mName.C_Str() << ' ' << source.mBones[0]->mNumWeights << std::endl;
-    }
-
     const uint32_t index = context.model.AddMesh( 
-        {source.mName.C_Str(), std::move(mesh), materialIndex});
+        {source.mName.C_Str(), std::move(mesh), materialIndex,
+         source.HasBones() && context.options.importSkeletons});
     context.meshIndices.emplace(sourceIndex, index);
     return index;
 }
@@ -392,7 +490,61 @@ uint32_t ProcessNode(const aiNode& source, ImportContext& context) {
         }
         node.children.push_back(childIndex);
     }
-    return context.model.AddNode(std::move(node));
+    return context.model.AddModelNode(std::move(node));
+}
+
+void ProcessAnimationClip(const aiAnimation* animation,
+    unsigned int animationIndex, ImportContext& context) {
+    auto clip = std::make_shared<AnimationClip>();
+    clip->name = animation->mName.C_Str();
+    if (clip->name.empty())
+        clip->name = "Animation_" + std::to_string(animationIndex);
+    float ticksPerSecond = animation->mTicksPerSecond <= 0.0f ? 25.0f :
+        animation->mTicksPerSecond;
+    clip->duration = static_cast<float>(animation->mDuration / ticksPerSecond);
+
+    for (unsigned int i = 0; i < animation->mNumChannels; ++i) {
+        const auto* channel = animation->mChannels[i];
+        TransformTrack track;
+        track.targetName = channel->mNodeName.C_Str();
+        track.targetNodeIndex = context.model.FindNodeIndex(track.targetName);
+        if (track.targetNodeIndex == TransformTrack::InvalidNodeIndex) {
+            std::cout << "ModelAssetLoader: animation track target not found: "
+                      << track.targetName << '\n';
+            continue;
+        }
+        for (unsigned int j = 0; j < channel->mNumPositionKeys; ++j) {
+            const auto key = channel->mPositionKeys[j];
+            track.positions.push_back({
+                static_cast<float>(key.mTime / ticksPerSecond), ToGlmVec3(key.mValue)
+            });
+        }
+        for (unsigned int j = 0; j < channel->mNumScalingKeys; ++j) {
+            const auto key = channel->mScalingKeys[j];
+            track.scales.push_back({
+                static_cast<float>(key.mTime / ticksPerSecond), ToGlmVec3(key.mValue)
+            });
+        }
+        for (unsigned int j = 0; j < channel->mNumRotationKeys; ++j) {
+            const auto key = channel->mRotationKeys[j];
+            track.rotations.push_back({
+                static_cast<float>(key.mTime / ticksPerSecond),
+                glm::normalize(ToGlmQuat(key.mValue))
+            });
+        }
+        clip->tracks.push_back(std::move(track));
+    }
+    context.model.AddAnimationClip(clip);
+}
+
+void ProcessAnimations(const aiScene* scene, ImportContext& context) {
+    if (!context.options.importAnimations || !scene->HasAnimations())
+        return;
+
+    for (unsigned int i = 0; i < scene->mNumAnimations; ++i) {
+        const auto* animation = scene->mAnimations[i];
+        ProcessAnimationClip(animation, i, context);
+    }
 }
 
 std::string MakeCacheKey(
@@ -400,6 +552,8 @@ std::string MakeCacheKey(
     const ModelLoadOptions& options) {
     return modelPath + '\n' + options.materialTemplatePath + '\n' +
         (options.importMaterials ? "1" : "0") + '\n' +
+        (options.importSkeletons ? "1" : "0") + '\n' +
+        (options.importAnimations ? "1" : "0") + '\n' +
         std::to_string(static_cast<int>(options.alphaTextureFallback));
 }
 
@@ -475,6 +629,18 @@ std::shared_ptr<Model> ModelAssetLoader::Load(
         return nullptr;
     }
     model->SetRootNodeIndex(rootIndex);
+    for (uint32_t i = 0; i < context.boneNodeNames.size(); ++i) {
+        const uint32_t nodeIndex = model->FindNodeIndex(context.boneNodeNames[i]);
+        if (nodeIndex == InvalidIndex) {
+            std::cout << "ModelAssetLoader: bone node not found: "
+                      << context.boneNodeNames[i] << '\n';
+            return nullptr;
+        }
+        model->SetBoneNodeIndex(i, nodeIndex);
+    }
+    glm::mat4 rootTransform = model->GetNodes()[rootIndex].localTransform;
+    model->SetGlobalRootInverseMat(glm::inverse(rootTransform));
+    ProcessAnimations(scene, context);
     if (!model->IsValid()) {
         std::cout << "ModelAssetLoader: imported model is invalid: "
                   << normalizedPath << '\n';

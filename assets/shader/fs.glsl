@@ -59,13 +59,17 @@ uniform vec3 uDiffuse = vec3(1.0);
 uniform vec3 uSpecular = vec3(1.0);
 uniform float uShininess = 32.0;
 uniform float uOpacity = 1.0;
+uniform int uHasDiffuseMap = 1;
 uniform int uHasOpacityMap = 0;
 uniform int uHasSpecularMap = 0;
 uniform int uAlphaMasked = 0;
 uniform float uAlphaCutoff = 0.5;
 
 void main() {
-    vec4 texColor = texture(uDiffuseMap, fTexCoord);
+    vec4 texColor = vec4(1.0f);
+    if (uHasDiffuseMap != 0) {
+        texColor = texture(uDiffuseMap, fTexCoord);
+    }
     float alpha = texColor.a * uOpacity;
     if (uHasOpacityMap != 0) {
         alpha *= texture(uOpacityMap, fTexCoord).r;
