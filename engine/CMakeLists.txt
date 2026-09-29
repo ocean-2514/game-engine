@@ -103,6 +103,9 @@ set(ENGINE_SRC
     src/Renderer/Animation.h
     src/Scene/Components/SkinnedMeshComponent.cpp
     src/Scene/Components/SkinnedMeshComponent.h
+    src/Renderer/AnimatorController.cpp
+    src/Renderer/AnimatorController.h
+    src/Renderer/AnimatorTypes.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

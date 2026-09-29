@@ -1,6 +1,8 @@
 #ifndef O_ANIMATION
 #define O_ANIMATION
 
+#include "Renderer/AnimatorTypes.h"
+
 #include <glm/glm.hpp>
 #ifndef GLM_ENABLE_EXPERIMENTAL
     #define GLM_ENABLE_EXPERIMENTAL
@@ -8,6 +10,7 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include <string>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -30,6 +33,8 @@ struct TransformTrack {
     static constexpr uint32_t InvalidNodeIndex =
         std::numeric_limits<uint32_t>::max();
 
+    // Name of the target node in the model hierarchy, e.g. "leftHand".
+    // This is used to match the track to the corresponding node in the model.
     std::string targetName;
     // corresponding model node index
     uint32_t targetNodeIndex = InvalidNodeIndex;
@@ -78,57 +83,35 @@ struct AnimationPose {
     std::vector<LocalTransform> localTransforms;
 };
 
-struct AnimationPlayback {
-    std::shared_ptr<const AnimationClip> clip;
-    float time = 0.0f;
+struct MotionPlayback {
+    AnimatorMotionId motionId = InvalidAnimatorId;
+    float normalizedTime = 0.0f;
     float speed = 1.0f;
     bool looping = true;
     bool playing = false;
 
     void Reset() {
-        clip.reset();
-        time = 0.0f;
+        motionId = InvalidAnimatorId;
+        normalizedTime = 0.0f;
         speed = 1.0f;
         looping = true;
         playing = false;
     }
 
-    void Update(float deltaTime) {
-        if (!clip || !playing || deltaTime <= 0.0f) return;
-        time += deltaTime * speed;
-        const float duration = clip->duration;
-        if (duration <= 0.0f) {
-            time = 0.0f;
-            playing = false;
-        } else if (looping) {
-            time = std::fmod(time, duration);
-            if (time < 0.0f) time += duration;
-        } else {
-            if (time >= duration) {
-                time = duration;
-                playing = false;
-            } else if (time <= 0.0f && speed < 0.0f) {
-                time = 0.0f;
-                playing = false;
-            }
-        }
-    }
 
-    void SetTime(float newTime) {
-        if (!clip) return;
-        const float duration = clip->duration;
-        if (duration <= 0.0f) time = 0.0f;
-        else if (looping) {
-            time = std::fmod(newTime, duration);
-            if (time < 0.0f) time += duration;
+    void SetNormalizedTime(float newTime) {
+        if (!std::isfinite(newTime)) return;
+        if (looping) {
+            normalizedTime = std::fmod(newTime, 1.0f);
+            if (normalizedTime < 0.0f) normalizedTime += 1.0f;
         }
-        else time = glm::clamp(newTime, 0.0f, duration);
+        else normalizedTime = glm::clamp(newTime, 0.0f, 1.0f);
     }
 };
 
-struct AnimationTransition {
+struct AnimationBlendTransition {
     AnimationPose sourcePose;
-    AnimationPlayback destination;
+    MotionPlayback destination;
     float elapsed = 0.0f;
     float duration = 0.2f;
     bool active = false;

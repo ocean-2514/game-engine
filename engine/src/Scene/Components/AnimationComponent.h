@@ -3,6 +3,7 @@
 
 #include "Renderer/Animation.h"
 #include "Scene/Component.h"
+#include "Renderer/AnimatorController.h"
 
 #include <memory>
 #include <string>
@@ -25,46 +26,85 @@ public:
 
     explicit AnimationComponent(std::shared_ptr<const Model> model);
 
-    const AnimationClip* GetCurrentClip() const;
+    // const AnimationClip* GetCurrentClip() const;
     const std::shared_ptr<const Model>& GetModel() const;
     const std::shared_ptr<SkeletonPose>& GetPose() const;
+    const std::shared_ptr<const AnimatorController>& GetController() const;
+    bool SetController(std::shared_ptr<const AnimatorController> controller);
     bool IsLooping() const;
     void SetLooping(bool looping);
     bool IsPlaying() const;
     void SetPlaying(bool playing);
-    float GetTime() const;
-    void SetTime(float time);
+    float GetNormalizedTime() const;
+    void SetNormalizedTime(float time);
+
     void Register(std::shared_ptr<const AnimationClip> clip);
-    bool Play(const std::string& name, bool looping = true);
-    bool CrossFade(const std::string& name, float duration = 0.3f, bool looping = true);
+    bool Play(const std::string& clipName, bool looping = true);
+    bool CrossFade(const std::string& clipName, float duration = 0.3f, bool looping = true);
+
+    bool SetFloat(std::string_view name, float value);
+    bool SetBool(std::string_view name, bool value);
+    bool SetInt(std::string_view name, int32_t value);
+    bool SetTrigger(std::string_view name);
+    bool ResetTrigger(std::string_view name);
+
+    AnimatorStateId GetCurrentState() const;
+    bool IsInTransition() const;
 
 protected:
     void OnUpdate(float deltaTime) override;
 
 private:
+    bool SetValue(std::string_view name, AnimatorParameterValue value);
+    bool PlayClip(const std::string& name, bool looping);
+    bool PlayMotion(AnimatorMotionId motionId, bool looping);
+    bool CrossFadeClip(const std::string& name, float duration, bool looping);
+    bool CrossFadeMotion(AnimatorMotionId motionId, float duration, bool looping);
+    bool AdvanceMotion(MotionPlayback& playback, float deltaTime);
+    float GetEffectiveDuration(AnimatorMotionId motionId) const;
     void Renew();
     void BuildBindings();
     void ApplyPoseToBindings();
     void BuildSkinningPalette();
     void BuildSkinningPaletteRecursive(uint32_t nodeIndex,
         const glm::mat4& parentTransform);
+    bool TryStartStateTransition();
+    bool AreConditionsMet(
+        const AnimatorTransitionDefinition& transition) const;
+    bool IsConditionMet(const AnimatorCondition& condition) const;
+    void ConsumeTriggersUsedBy(
+        const AnimatorTransitionDefinition& transition);
     const TransformTrack* FindTrack(const AnimationClip* clip, 
         uint32_t nodeIndex) const;
+    const AnimationClip* FindAnimationClip(const std::string& name) const;
     LocalTransform SampleLocalTransform(const AnimationClip* clip, 
         uint32_t nodeIndex, float time) const;
-    AnimationPose SampleLocalPose(const AnimationClip* clip, float time) const;
-    AnimationPose SampleLocalPose(const AnimationPlayback& playback) const;
-    AnimationPose SampleLocalPose(const AnimationTransition& transition) const;
-    static glm::vec3 Interpolate(
-        const std::vector<KeyFrameVec3>& keyFrames, float time);
-    static glm::quat Interpolate(
-        const std::vector<KeyFrameQuat>& keyFrames, float time);
+    AnimationPose SampleLocalPose(const AnimatorMotionData& motionData,
+        float normalizedTime) const;
+    AnimationPose SampleLocalPose(const ClipMotionDefinition& clipDef,
+        float normalizedTime) const;
+    AnimationPose SampleLocalPose(const BlendTree1DDefinition& blendTree,
+        float normalizedTime) const;
+    AnimationPose SampleLocalPose(const MotionPlayback& playback) const;
+    AnimationPose SampleLocalPose(const AnimationBlendTransition& transition) const;
+
+    bool ValidateControllerClipName(const AnimatorController& controller) const;
+    bool ValidateMotionClipName(const AnimatorController& controller,
+        const AnimatorMotionData& motion) const;
+    bool ValidateClipMotionClipName(const ClipMotionDefinition& clipDef) const;
+    bool ValidateBlendTree1DClipName(const AnimatorController& controller,
+        const BlendTree1DDefinition& blendTreeDef) const;
 
     std::shared_ptr<const Model> m_model;
     std::shared_ptr<SkeletonPose> m_skeletonPose;
-    AnimationPlayback m_playback;
-    AnimationTransition m_transition;
+    MotionPlayback m_playback;
+    AnimationBlendTransition m_transition;
     AnimationPose m_currentPose;
+
+    std::shared_ptr<const AnimatorController> m_controller;
+    std::vector<AnimatorParameterValue> m_parameterValues;
+    AnimatorStateId m_currentStateId = InvalidAnimatorId;
+    AnimatorStateId m_destinationStateId = InvalidAnimatorId;
 
     std::unordered_map<std::string,
         std::shared_ptr<const AnimationClip>> m_clips;

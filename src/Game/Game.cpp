@@ -1,7 +1,7 @@
 #include "Game.h"
-#include "TestObject.h"
-#include "ModelFactory.h"
-#include "ThirdPerspectiveController.h"
+#include "Game/GameObjects/TestObject.h"
+#include "Game/Factory/ModelFactory.h"
+#include "Game/Scripts/ThirdPerspectiveController.h"
 #include <iostream>
 #include <string>
 #include <utility>
@@ -33,19 +33,18 @@ bool Game::Init() {
     const auto model = ModelFactory::CreatePlayerModel();
     // const auto model = assets.LoadModel("model/odette/奥黛塔.pmx"); 
     eng::GameObject* modelObj = scene.InstantiateModel(model);
+    auto* animationComp = modelObj->GetComponent<eng::AnimationComponent>();
+    animationComp->SetController(ModelFactory::CreatePlayerAnimatorController());
     camera = scene.CreateObject<Camera>("MainCamera", modelObj);
-    modelObj->AddComponent<ThirdPerspectiveController>(
+    auto* controller = modelObj->AddComponent<ThirdPerspectiveController>(
         &player,
         static_cast<eng::GameObject*>(camera));
+    controller->SetAnimationComponent(animationComp);
+    
     if (modelObj) { 
         modelObj->SetPosition(glm::vec3{0.0f, 0.0f, 1.0f});
         // modelObj->SetScale(glm::vec3{0.01f});
         // modelObj->SetPosition(glm::vec3{0.0f, 1.0f, -1.0f});
-    }
-    auto* animationComp = modelObj->GetComponent<eng::AnimationComponent>();
-    if (animationComp) {
-        // animationComp->Play("Walking", true);
-        animationComp->SetPlaying(true);
     }
 
     return true;

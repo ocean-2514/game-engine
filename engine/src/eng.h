@@ -12,6 +12,7 @@
 #include "Renderer/MeshFactory.h"
 #include "Renderer/Texture.h"
 #include "Renderer/TextureDesc.h"
+#include "Renderer/AnimatorController.h"
 #include "Assets/MaterialAssetLoader.h"
 #include "Assets/AssetManager.h"
 #include "Assets/ModelAssetLoader.h"

@@ -23,7 +23,10 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/engine)
 
 add_executable(my_engine ${MY_ENGINE_SRC})
 
-target_include_directories(my_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_include_directories(my_engine PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 target_link_libraries(my_engine PUBLIC engine)
 
 target_compile_definitions(my_engine PRIVATE SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/shader")

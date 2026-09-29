@@ -1,4 +1,4 @@
-#include "ThirdPerspectiveController.h"
+#include "Game/Scripts/ThirdPerspectiveController.h"
 
 #include <glm/glm.hpp>
 #include <iostream>
@@ -6,11 +6,16 @@
 ThirdPerspectiveController::ThirdPerspectiveController(
     Player* player,
     eng::GameObject* camera, float distance, 
-    float sensitivity, float moveSpeed) 
+    float sensitivity) 
     : m_player(player),
     m_camera(camera), m_distance(distance), 
-    m_sensitivity(sensitivity), m_moveSpeed(moveSpeed) {
+    m_sensitivity(sensitivity) {
     camera->SetPosition({0.0f, 0.0f, m_distance});
+}
+
+void ThirdPerspectiveController::SetAnimationComponent(
+    eng::AnimationComponent* comp) {
+    m_animationComponent = comp;
 }
 
 
@@ -62,11 +67,41 @@ void ThirdPerspectiveController::OnUpdate(float deltaTime) {
     if (inputManager.IsKeyPressed(eng::Key::E)) {
         moveDirection -= m_worldUp;
     }
+    if (inputManager.IsKeyPressed(eng::Key::Space)) {
+        if (!m_spacePressed) {
+            m_spacePressed = true;
+            m_animationComponent->SetTrigger("Jump");
+        }
+    } else {
+        if (m_spacePressed) m_spacePressed = false;
+    }
+    if (inputManager.IsMouseButtonPressed(eng::Key::MouseRight)) {
+        if (!m_rightMousePressed) {
+            m_rightMousePressed = true;
+            if (m_player->IsMoving()) {
+                m_shouldRunning = !m_shouldRunning;
+            }
+        }
+    } else {
+        if (m_rightMousePressed) m_rightMousePressed = false;
+    }
 
-    if (glm::dot(moveDirection, moveDirection) > 0.0f) {
+    bool moving = glm::dot(moveDirection, moveDirection) > 0.0f;
+    if (moving) {
+        m_player->SetMoveState(
+            m_shouldRunning ? PlayerMoveState::Running : PlayerMoveState::Walking
+        );
+        m_player->SetSpeed(m_shouldRunning ? 4.0f : 2.0f);
+    } else {
+        m_shouldRunning = false;
+        m_player->SetMoveState(PlayerMoveState::Idle);
+        m_player->SetSpeed(0.0f);
+    }
+    m_animationComponent->SetFloat("Speed", m_player->GetSpeed());
+    if (moving) {
         moveDirection = glm::normalize(moveDirection);
         m_owner->SetPosition(m_owner->GetPosition() +
-            moveDirection * m_moveSpeed * deltaTime);
+            moveDirection * m_player->GetSpeed() * deltaTime);
     }
     
     ComputeModelYaw(moveDirection, deltaTime);
@@ -91,15 +126,9 @@ void ThirdPerspectiveController::ComputeModelYaw(const glm::vec3& moveDirection,
     glm::vec3 direction = moveDirection - glm::dot(moveDirection, m_worldUp) * m_worldUp;
     bool moving = glm::dot(direction, direction) > 1e-6f;
     if (!moving) {
-        if (m_player->GetMoveState() != PlayerMoveState::Idle) {
-            m_player->SetMoveState(PlayerMoveState::Idle);
-        }
         m_modelTargetYaw = m_modelCurrentYaw;
         return;
     } else {
-        if (m_player->GetMoveState() != PlayerMoveState::Walking) {
-            m_player->SetMoveState(PlayerMoveState::Walking);
-        }
         m_modelTargetYaw = glm::degrees(std::atan2(-direction.x, -direction.z));
         m_modelTargetYaw = std::fmod(m_modelTargetYaw, 360.0f);
         if (m_modelTargetYaw < 0.0f) {

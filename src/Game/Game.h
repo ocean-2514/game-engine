@@ -2,8 +2,8 @@
 #define O_GAME
 
 #include "eng.h"
-#include "Camera.h"
-#include "Player.h"
+#include "Game/GameObjects/Camera.h"
+#include "Game/Entities/Player.h"
 
 class Game : public eng::Application {
 public:
