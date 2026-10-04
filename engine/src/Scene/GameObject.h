@@ -125,7 +125,8 @@ public:
 
 protected:
     GameObject() = default;
-    virtual void OnUpdate(float deltaTime);
+    virtual void OnUpdate(float deltaTime) {}
+    virtual void OnFixedUpdate(float fixedDeltaTime) {}
 
 private:
     struct AttachComponentCommand {
@@ -138,7 +139,10 @@ private:
     bool AttachComponent(std::unique_ptr<Component> component);
     bool AttachComponentImmediate(std::unique_ptr<Component> component);
     void FlushPendingCommands();
+    void UpdateComponents(float deltaTime,
+        bool fixedDeltaTime = false);
     void UpdateTree(float deltaTime);
+    void FixedUpdateTree(float fixedDeltaTime);
     void RenderTree(RenderQueue& queue);
 
     std::string m_name;

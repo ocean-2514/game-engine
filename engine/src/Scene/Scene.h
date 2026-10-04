@@ -4,6 +4,7 @@
 #include "Scene/GameObject.h"
 #include "Scene/Components/CameraComponent.h"
 #include "Common.h"
+#include "Physics/PhysicsWorld.h"
 
 #include <memory>
 #include <cstdint>
@@ -20,7 +21,7 @@ struct SkeletonPose;
 
 class Scene {
 public:
-    Scene() = default;
+    Scene();
     ~Scene() = default;
 
     Scene(const Scene&) = delete;
@@ -69,9 +70,13 @@ public:
     CameraComponent* GetMainCamera();
     const CameraComponent* GetMainCamera() const;
     bool SetMainCamera(CameraComponent* camera);
+    bool SetPhysicsWorld(const PhysicsWorldDesc& desc);
+    PhysicsWorld* GetPhysicsWorld();
+    const PhysicsWorld* GetPhysicsWorld() const;
     std::size_t GetRootObjectCount() const;
     GameObject* GetRootObject(std::size_t index);
     const GameObject* GetRootObject(std::size_t index) const;
+
 
 private:
     using ObjectContainer = std::vector<std::unique_ptr<GameObject>>;
@@ -95,6 +100,9 @@ private:
         ClearCommand
     >;
 
+    // only called during Update
+    void UpdateObjects(float deltaTime,
+        bool fixedDeltaTime = false);
     // used only for CreateObject()
     bool AttachObject(
         std::unique_ptr<GameObject> object,
@@ -129,6 +137,9 @@ private:
     void CollectLightingData(LightingData& data) const;
     void CollectLightingDataRecursive(const GameObject* object, 
         LightingData& data) const;
+
+    std::unique_ptr<PhysicsWorld> m_physicsWorld;
+    float m_physicsAccumulator = 0.0f;
 
     ObjectContainer m_objects;
     CameraComponent* m_mainCamera = nullptr;

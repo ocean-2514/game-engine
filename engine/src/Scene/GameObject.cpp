@@ -6,8 +6,8 @@
 
 namespace eng {
 
-void GameObject::UpdateTree(float deltaTime) {
-    OnUpdate(deltaTime);
+void GameObject::UpdateComponents(float deltaTime,
+    bool fixedDeltaTime) {
     if (!m_isAlive) {
         return;
     }
@@ -21,7 +21,11 @@ void GameObject::UpdateTree(float deltaTime) {
 
         for (auto it = m_components.begin(); it != m_components.end();) {
             if ((*it)->IsAlive()) {
-                (*it)->OnUpdate(deltaTime);
+                if (fixedDeltaTime) {
+                    (*it)->OnFixedUpdate(deltaTime);
+                } else {
+                    (*it)->OnUpdate(deltaTime);
+                }
             }
 
             if ((*it)->IsAlive()) {
@@ -34,8 +38,6 @@ void GameObject::UpdateTree(float deltaTime) {
                 break;
             }
         }
-
-
     }
 
     if (!m_isAlive) {
@@ -46,15 +48,28 @@ void GameObject::UpdateTree(float deltaTime) {
     for (auto it = m_children.begin(); it != m_children.end();) {
         GameObject& child = **it;
         if (child.IsAlive()) {
-            child.UpdateTree(deltaTime);
+            if (fixedDeltaTime) {
+                child.FixedUpdateTree(deltaTime);
+            } else {
+                child.UpdateTree(deltaTime);
+            }
         }
-
         if (child.IsAlive()) {
             ++it;
         } else {
             it = m_children.erase(it);
         }
     }
+}
+
+void GameObject::UpdateTree(float deltaTime) {
+    OnUpdate(deltaTime);
+    UpdateComponents(deltaTime, false);
+}
+
+void GameObject::FixedUpdateTree(float fixedDeltaTime) {
+    OnFixedUpdate(fixedDeltaTime);
+    UpdateComponents(fixedDeltaTime, true);
 }
 
 void GameObject::RenderTree(RenderQueue& queue) {
@@ -97,8 +112,6 @@ void GameObject::RenderTree(RenderQueue& queue) {
         }
     }
 }
-
-void GameObject::OnUpdate(float) {}
 
 const std::string& GameObject::GetName() const {
     return m_name;

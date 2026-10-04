@@ -43,6 +43,7 @@ protected:
     
     Component() = default;
     virtual void OnUpdate(float deltaTime) {}
+    virtual void OnFixedUpdate(float fixedDeltaTime) {}
     virtual void OnRender(RenderQueue& queue) {}
     
 private:

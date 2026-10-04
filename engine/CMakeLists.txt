@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.50)
 
 project(engine LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
@@ -22,6 +22,27 @@ configure_file(
 #glad
 add_library(glad STATIC ${CMAKE_CURRENT_SOURCE_DIR}/include/glad/glad.c)
 target_include_directories(glad PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+# Build only the Bullet 2 libraries used by the engine. Keep Bullet's source
+# tree intact, but exclude its demos, tests, Python bindings, and optional extras.
+set(BULLET3_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/include/bullet3)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static Bullet libraries" FORCE)
+set(BUILD_BULLET3 OFF CACHE BOOL "Disable Bullet 3" FORCE)
+set(BUILD_CPU_DEMOS OFF CACHE BOOL "Disable Bullet demos" FORCE)
+set(BUILD_BULLET2_DEMOS OFF CACHE BOOL "Disable Bullet 2 demos" FORCE)
+set(BUILD_OPENGL3_DEMOS OFF CACHE BOOL "Disable Bullet OpenGL demos" FORCE)
+set(BUILD_EXTRAS OFF CACHE BOOL "Disable Bullet extras" FORCE)
+set(BUILD_UNIT_TESTS OFF CACHE BOOL "Disable Bullet tests" FORCE)
+set(BUILD_PYBULLET OFF CACHE BOOL "Disable PyBullet" FORCE)
+set(USE_SOFT_BODY_MULTI_BODY_DYNAMICS_WORLD OFF CACHE BOOL
+    "Disable Bullet soft-body multibody world" FORCE)
+set(USE_GRAPHICAL_BENCHMARK OFF CACHE BOOL
+    "Disable Bullet graphical benchmarks" FORCE)
+set(USE_GLUT OFF CACHE BOOL "Disable Bullet GLUT integration" FORCE)
+set(INSTALL_LIBS OFF CACHE BOOL "Disable Bullet installation targets" FORCE)
+set(INSTALL_CMAKE_FILES OFF CACHE BOOL
+    "Disable Bullet CMake package installation" FORCE)
+add_subdirectory(${BULLET3_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/bullet3 EXCLUDE_FROM_ALL)
 
 set(ENGINE_SRC
     src/Application.cpp
@@ -106,17 +127,37 @@ set(ENGINE_SRC
     src/Renderer/AnimatorController.cpp
     src/Renderer/AnimatorController.h
     src/Renderer/AnimatorTypes.h
+    src/Physics/PhysicsTypes.h
+    src/Physics/CollisionShape.cpp
+    src/Physics/CollisionShape.h
+    src/Physics/PhysicsWorld.cpp
+    src/Physics/PhysicsWorld.h
+    src/Physics/Bullet/BulletPhysicsWorld.cpp
+    src/Physics/Bullet/BulletPhysicsWorld.h
+    src/Physics/Bullet/BulletConversions.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})
 
-target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_include_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_include_directories(engine PUBLIC ${PROJECT_BINARY_DIR})
-
+target_include_directories(engine PRIVATE
+    ${BULLET3_ROOT}/src
+)
+target_include_directories(engine PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${PROJECT_BINARY_DIR}
+)
 
 target_link_directories(engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib)
-target_link_libraries(engine PUBLIC libglfw3dll.a glad libassimp)
+target_link_libraries(engine PUBLIC
+    libglfw3dll.a
+    glad
+    libassimp
+)
+target_link_libraries(engine PRIVATE
+    BulletDynamics
+    BulletCollision
+    LinearMath
+)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory

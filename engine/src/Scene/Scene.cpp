@@ -7,13 +7,22 @@
 #include "Scene/Components/PointLightComponent.h"
 #include "Renderer/RenderQueue.h"
 #include "Renderer/Model.h"
+
 #include <utility>
 #include <iostream>
+#include <algorithm>
+#include <cmath>
 
 namespace eng {
 
+Scene::Scene() {
+    m_physicsWorld = std::make_unique<PhysicsWorld>(
+        PhysicsWorldDesc{}
+    );
+}
+
 void Scene::Update(float deltaTime) {
-    if (m_isUpdating) {
+    if (m_isUpdating || !std::isfinite(deltaTime) || deltaTime < 0.0f) {
         return;
     }
     m_isUpdating = true;
@@ -23,19 +32,37 @@ void Scene::Update(float deltaTime) {
             bool& isUpdating;
             ~UpdateGuard() { isUpdating = false; }
         } guard{m_isUpdating};
-    
-        for (auto it = m_objects.begin(); it != m_objects.end();) {
-            GameObject& object = **it;
-            if (object.IsAlive()) {
-                object.UpdateTree(deltaTime);
+
+        if (m_physicsWorld) {
+            const auto& desc = m_physicsWorld->GetDesc();
+            float maxAccumulatedTime = desc.maxAccumulatedTime;
+            float fixedTimeStep = desc.fixedTimeStep;
+            uint32_t maxSubStepFrame = desc.maxSubStepsPerFrame;
+            if (deltaTime > 0.0f) {
+                m_physicsAccumulator = std::min(
+                    m_physicsAccumulator + deltaTime,
+                    maxAccumulatedTime);
             }
-    
-            if (object.IsAlive()) {
-                ++it;
-            } else {
-                it = m_objects.erase(it);
+            uint32_t step = 0;
+            while (m_physicsAccumulator >= fixedTimeStep &&
+                step < maxSubStepFrame) {
+                UpdateObjects(fixedTimeStep, true);
+                // PushKinematicTransforms();
+                m_physicsWorld->Simulate(fixedTimeStep);
+                // PullDynamicTransforms();
+                ++step;
+                m_physicsAccumulator -= fixedTimeStep;
+            }
+            if (step == maxSubStepFrame &&
+                m_physicsAccumulator >= fixedTimeStep) {
+                // Drop overdue whole steps instead of carrying an unbounded
+                // catch-up backlog into later frames.
+                m_physicsAccumulator = std::fmod(
+                    m_physicsAccumulator, fixedTimeStep);
             }
         }
+
+        UpdateObjects(deltaTime, false);
     }
 
     // flush commands after objects marked for destroy are destroyed
@@ -85,6 +112,27 @@ GameObject* Scene::CreateObject(std::string name, GameObject* parent) {
     return AttachObject(std::move(object), std::move(name), parent)
         ? result
         : nullptr;
+}
+
+void Scene::UpdateObjects(float deltaTime, bool fixedDeltaTime) {
+    if (!m_isUpdating) return;
+
+    for (auto it = m_objects.begin(); it != m_objects.end();) {
+        GameObject& object = **it;
+        if (object.IsAlive()) {
+            if (fixedDeltaTime) {
+                object.FixedUpdateTree(deltaTime);
+            } else {
+                object.UpdateTree(deltaTime);
+            }
+        }
+
+        if (object.IsAlive()) {
+            ++it;
+        } else {
+            it = m_objects.erase(it);
+        }
+    }
 }
 
 bool Scene::AttachObject(
@@ -418,6 +466,22 @@ bool Scene::SetMainCamera(CameraComponent* camera) {
     return true;
 }
 
+bool Scene::SetPhysicsWorld(const PhysicsWorldDesc& desc) {
+    if (m_isUpdating || !desc.IsValid()) return false;
+    auto world = std::make_unique<PhysicsWorld>(desc);
+    if (!world->IsValid()) return false;
+    m_physicsWorld = std::move(world);
+    m_physicsAccumulator = 0.0f;
+    return true;
+}
+
+PhysicsWorld* Scene::GetPhysicsWorld() {
+    return m_physicsWorld.get();
+}
+
+const PhysicsWorld* Scene::GetPhysicsWorld() const {
+    return m_physicsWorld.get();
+}
 
 std::size_t Scene::GetRootObjectCount() const {
     return m_objects.size();
