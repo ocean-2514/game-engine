@@ -6,6 +6,10 @@
 
 namespace eng {
 
+GameObject::~GameObject() {
+    DetachFromScene();
+}
+
 void GameObject::UpdateComponents(float deltaTime,
     bool fixedDeltaTime) {
     if (!m_isAlive) {
@@ -31,6 +35,7 @@ void GameObject::UpdateComponents(float deltaTime,
             if ((*it)->IsAlive()) {
                 ++it;
             } else {
+                DetachComponent(**it);
                 it = m_components.erase(it);
             }
 
@@ -92,6 +97,7 @@ void GameObject::RenderTree(RenderQueue& queue) {
             if ((*it)->IsAlive()) {
                 ++it;
             } else {
+                DetachComponent(**it);
                 it = m_components.erase(it);
             }
 
@@ -162,12 +168,29 @@ void GameObject::SetPosition(const glm::vec3& position) {
     m_position = position;
 }
 
+void GameObject::SetWorldPosition(const glm::vec3& worldPosition) {
+    if (m_parent != nullptr) {
+        m_position = glm::inverse(m_parent->GetWorldTransform()) * glm::vec4(worldPosition, 1.0f);
+    } else {
+        m_position = worldPosition;
+    }
+}
+
 const glm::quat& GameObject::GetRotation() const {
     return m_rotation;
 }
 
 void GameObject::SetRotation(const glm::quat& rotation) {
     m_rotation = rotation;
+}
+
+void GameObject::SetWorldRotation(const glm::quat& worldRotation) {
+    if (m_parent != nullptr) {
+        m_rotation = glm::normalize(
+            glm::inverse(m_parent->GetWorldRotation()) * worldRotation);
+    } else {
+        m_rotation = glm::normalize(worldRotation);
+    }
 }
 
 void GameObject::Rotate(float angle, const glm::vec3& axis) {
@@ -272,8 +295,46 @@ bool GameObject::AttachComponentImmediate(
     if (!component || component->m_owner != this || !component->IsAlive()) {
         return false;
     }
+    if (m_scene) {
+        component->OnAttach(*m_scene);
+    }
     m_components.push_back(std::move(component));
     return true;
+}
+
+void GameObject::AttachToScene(Scene& scene) {
+    if (m_scene == &scene) return;
+    if (m_scene != nullptr) return;
+
+    m_scene = &scene;
+    for (auto& component : m_components) {
+        if (component && component->IsAlive()) {
+            component->OnAttach(scene);
+        }
+    }
+    for (auto& child : m_children) {
+        if (child) child->AttachToScene(scene);
+    }
+}
+
+void GameObject::DetachFromScene() {
+    if (!m_scene) return;
+    Scene& scene = *m_scene;
+
+    for (auto& child : m_children) {
+        if (child) child->DetachFromScene();
+    }
+    for (auto& component : m_components) {
+        if (component) DetachComponent(*component);
+    }
+    m_scene = nullptr;
+}
+
+void GameObject::DetachComponent(Component& component) {
+    if (m_scene && component.m_owner == this) {
+        component.OnDetach(*m_scene);
+    }
+    component.m_owner = nullptr;
 }
 
 void GameObject::FlushPendingCommands() {

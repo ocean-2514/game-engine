@@ -9,6 +9,7 @@ namespace eng {
 
 class GameObject;
 class RenderQueue;
+class Scene;
 
 class Component
 {
@@ -25,6 +26,7 @@ public:
     GameObject* GetOwner();
     const GameObject* GetOwner() const;
     glm::vec3 GetPosition() const;
+    glm::quat GetRotation() const;
     void MarkForDestroy();
     bool IsAlive() const;
     virtual TypeId GetTypeId() const noexcept = 0;
@@ -45,6 +47,8 @@ protected:
     virtual void OnUpdate(float deltaTime) {}
     virtual void OnFixedUpdate(float fixedDeltaTime) {}
     virtual void OnRender(RenderQueue& queue) {}
+    virtual void OnAttach(Scene& scene) {}
+    virtual void OnDetach(Scene& scene) {}
     
 private:
     friend class GameObject;

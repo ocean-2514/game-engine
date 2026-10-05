@@ -30,5 +30,8 @@
 #include "Scene/Components/PointLightComponent.h"
 #include "Scene/Components/AnimationComponent.h"
 #include "Scene/Components/SkinnedMeshComponent.h"
+#include "Scene/Components/RigidBodyComponent.h"
+#include "Physics/PhysicsWorld.h"
+#include "Physics/CollisionShape.h"
 
 #endif

@@ -23,6 +23,10 @@ glm::vec3 Component::GetPosition() const {
     return m_owner->GetWorldPosition();
 }
 
+glm::quat Component::GetRotation() const {
+    return m_owner->GetWorldRotation();
+}
+
 void Component::MarkForDestroy() {
     m_isAlive = false;
 }

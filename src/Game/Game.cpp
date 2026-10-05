@@ -8,31 +8,60 @@
 
 bool Game::Init() {
     auto& engine = eng::Engine::GetInstance();
-    auto& assets = engine.GetAssetManager();
+    auto& assetManager = engine.GetAssetManager();
 
+    auto* floor = scene.CreateObject<TestObject>(
+        "floor", nullptr, TestObject::Shape::Plane, assetManager);
+    floor->SetPosition(glm::vec3{0.0f, -1.0f, 0.0f});
+    floor->SetScale(glm::vec3{10.0f});
+    floor->Rotate(-90.0f, glm::vec3{1.0f, 0.0f, 0.0f});
+    floor->AddComponent<eng::RigidBodyComponent>(eng::RigidBodyDesc{
+        .motionType = eng::BodyMotionType::Static,
+        .mass = 0.0f,
+        .friction = 1.0f,
+        .colliders = {
+            eng::ColliderDesc{
+                .shape = eng::BoxShapeDesc{glm::vec3{10.0f, 10.0f, 0.05f}},
+                .localPosition = glm::vec3{0.0f, 0.0f, -0.05f},
+            }
+        },
+    });
     auto* cube = scene.CreateObject<TestObject>(
-        "cube", nullptr, TestObject::Shape::Cube,
-        glm::vec3(0.9f, 0.3f, 0.2f), assets);
-    auto* sphere = scene.CreateObject<TestObject>(
-        "sphere", nullptr, TestObject::Shape::Sphere,
-        glm::vec3(0.2f, 0.6f, 0.9f), assets);
-    auto* plane = scene.CreateObject<TestObject>(
-        "plane", nullptr, TestObject::Shape::Plane,
-        glm::vec3(0.3f, 0.7f, 0.3f), assets);
-
-    cube->SetPosition({-1.5f, 0.0f, 0.0f});
-    sphere->SetPosition({1.5f, 0.0f, 0.0f});
-    plane->SetPosition({0.0f, 0.0f, 0.0f});
+        "cube", nullptr, TestObject::Shape::Cube, assetManager);
+    cube->SetPosition(glm::vec3{0.0f, 2.0f, 0.0f});
+    cube->AddComponent<eng::RigidBodyComponent>(eng::RigidBodyDesc{
+        .motionType = eng::BodyMotionType::Dynamic,
+        .mass = 1.0f,
+        .friction = 1.0f,
+        .colliders = {
+            eng::ColliderDesc{
+                .shape = eng::BoxShapeDesc{glm::vec3{0.5f, 0.5f, 0.5f}},
+            }
+        },
+    });
 
     // camera = scene.CreateObject<Camera>("MainCamera", nullptr);
 
     auto* light = scene.CreateObject("directionalLight");
     light->AddComponent<eng::DirectionalLightComponent>();
-    light->Rotate(10.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
+    light->Rotate(60.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
 
     const auto model = ModelFactory::CreatePlayerModel();
     // const auto model = assets.LoadModel("model/odette/奥黛塔.pmx"); 
     eng::GameObject* modelObj = scene.InstantiateModel(model);
+    if (!modelObj) return false;
+    modelObj->SetPosition(glm::vec3{0.0f, 0.1f, 1.0f});
+    modelObj->AddComponent<eng::RigidBodyComponent>(eng::RigidBodyDesc{
+        .motionType = eng::BodyMotionType::Kinematic,
+        .mass = 0.0f,
+        .colliders = {
+            eng::ColliderDesc{
+                .shape = eng::BoxShapeDesc{
+                    glm::vec3{0.55f, 0.975f, 0.35f}},
+                .localPosition = glm::vec3{0.0f, -0.125f, 0.0f},
+            }
+        },
+    });
     auto* animationComp = modelObj->GetComponent<eng::AnimationComponent>();
     animationComp->SetController(ModelFactory::CreatePlayerAnimatorController());
     camera = scene.CreateObject<Camera>("MainCamera", modelObj);
@@ -41,12 +70,6 @@ bool Game::Init() {
         static_cast<eng::GameObject*>(camera));
     controller->SetAnimationComponent(animationComp);
     
-    if (modelObj) { 
-        modelObj->SetPosition(glm::vec3{0.0f, 0.0f, 1.0f});
-        // modelObj->SetScale(glm::vec3{0.01f});
-        // modelObj->SetPosition(glm::vec3{0.0f, 1.0f, -1.0f});
-    }
-
     return true;
 }
 

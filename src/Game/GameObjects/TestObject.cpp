@@ -2,9 +2,8 @@
 #include <iostream>
 TestObject::TestObject(
     Shape shape,
-    glm::vec3 color,
     eng::AssetManager& assetManager)
-    : m_shape(shape), m_color(color) {
+    : m_shape(shape) {
     auto& engine = eng::Engine::GetInstance();
     auto& device = engine.GetRenderDevice();
 

@@ -101,8 +101,11 @@ private:
     >;
 
     // only called during Update
-    void UpdateObjects(float deltaTime,
-        bool fixedDeltaTime = false);
+    void UpdateObjects(float deltaTime, bool fixedDeltaTime = false);
+    void PushKinematicTransforms();
+    void PushKinematicTransformsTree(GameObject* object);
+    void PullDynamicTransforms();
+    void PullDynamicTransformsTree(GameObject* object);
     // used only for CreateObject()
     bool AttachObject(
         std::unique_ptr<GameObject> object,

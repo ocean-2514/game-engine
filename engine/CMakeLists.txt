@@ -135,6 +135,8 @@ set(ENGINE_SRC
     src/Physics/Bullet/BulletPhysicsWorld.cpp
     src/Physics/Bullet/BulletPhysicsWorld.h
     src/Physics/Bullet/BulletConversions.h
+    src/Scene/Components/RigidBodyComponent.cpp
+    src/Scene/Components/RigidBodyComponent.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

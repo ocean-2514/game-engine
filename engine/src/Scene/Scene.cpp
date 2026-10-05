@@ -5,6 +5,7 @@
 #include "Scene/Components/DirectionalLightComponent.h"
 #include "Scene/Components/SpotLightComponent.h"
 #include "Scene/Components/PointLightComponent.h"
+#include "Scene/Components/RigidBodyComponent.h"
 #include "Renderer/RenderQueue.h"
 #include "Renderer/Model.h"
 
@@ -47,9 +48,9 @@ void Scene::Update(float deltaTime) {
             while (m_physicsAccumulator >= fixedTimeStep &&
                 step < maxSubStepFrame) {
                 UpdateObjects(fixedTimeStep, true);
-                // PushKinematicTransforms();
+                PushKinematicTransforms();
                 m_physicsWorld->Simulate(fixedTimeStep);
-                // PullDynamicTransforms();
+                PullDynamicTransforms();
                 ++step;
                 m_physicsAccumulator -= fixedTimeStep;
             }
@@ -132,6 +133,42 @@ void Scene::UpdateObjects(float deltaTime, bool fixedDeltaTime) {
         } else {
             it = m_objects.erase(it);
         }
+    }
+}
+
+void Scene::PushKinematicTransforms() {
+    if (!m_physicsWorld) return;
+    for (auto& object : m_objects) {
+        PushKinematicTransformsTree(object.get());
+    }
+}
+
+void Scene::PushKinematicTransformsTree(GameObject* object) {
+    if (!object || !object->IsAlive()) return;
+    if (auto* rigidBodyComp = object->GetComponent<RigidBodyComponent>()) {
+        rigidBodyComp->PushKinematicTransform();
+    }
+
+    for (auto& child : object->m_children) {
+        PushKinematicTransformsTree(child.get());
+    }
+}
+
+void Scene::PullDynamicTransforms() {
+    if (!m_physicsWorld) return;
+    for (auto& object : m_objects) {
+        PullDynamicTransformsTree(object.get());
+    }
+}
+
+void Scene::PullDynamicTransformsTree(GameObject* object) {
+    if (!object || !object->IsAlive()) return;
+    if (auto* rigidBodyComp = object->GetComponent<RigidBodyComponent>()) {
+        rigidBodyComp->PullDynamicTransform();
+    }
+
+    for (auto& child : object->m_children) {
+        PullDynamicTransformsTree(child.get());
     }
 }
 
@@ -242,6 +279,7 @@ bool Scene::IsValidComponent(const Component* component) const {
 void Scene::ClearImmediate() {
     m_mainCamera = nullptr;
     m_objects.clear();
+    m_physicsAccumulator = 0.0f;
 }
 
 bool Scene::SetParentImmediate(GameObject* object, GameObject* parent) {
@@ -275,14 +313,15 @@ bool Scene::AttachObjectImmediate(std::unique_ptr<GameObject> object,
         !object->IsAlive()) {
         return false;
     }
-
     object->SetName(std::move(name));
     object->m_parent = parent;
+    GameObject* attachedObject = object.get();
     if (parent != nullptr) {
         parent->m_children.push_back(std::move(object));
     } else {
         m_objects.push_back(std::move(object));
     }
+    attachedObject->AttachToScene(*this);
     return true;
 }
 
@@ -440,8 +479,6 @@ void Scene::CollectLightingDataRecursive(const GameObject* object,
         CollectLightingDataRecursive(child.get(), data);
     }
 }
-    
-
 
 CameraComponent* Scene::GetMainCamera() {
     return m_mainCamera;
@@ -467,7 +504,8 @@ bool Scene::SetMainCamera(CameraComponent* camera) {
 }
 
 bool Scene::SetPhysicsWorld(const PhysicsWorldDesc& desc) {
-    if (m_isUpdating || !desc.IsValid()) return false;
+    if (m_isUpdating || !m_objects.empty() ||
+        !m_pendingCommands.empty() || !desc.IsValid()) return false;
     auto world = std::make_unique<PhysicsWorld>(desc);
     if (!world->IsValid()) return false;
     m_physicsWorld = std::move(world);

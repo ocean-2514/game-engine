@@ -244,24 +244,17 @@ private:
 
 ## 组件注册与注销
 
-当前 Component 没有 `OnAttach/OnDetach`，GameObject 也没有所属 Scene 指针。物理组件却需要对称注册，因此需要选择一个明确方案。
+当前已经统一增加 `Component::OnAttach(Scene&)` / `OnDetach(Scene&)` 和 GameObject 的所属 Scene 观察指针。组件加到已挂接对象时立即 Attach；对象连同预先创建的组件接入 Scene 时递归 Attach。组件实际删除、GameObject 子树销毁或 Scene Clear 时递归 Detach，并保证回调发生在 owner 和 PhysicsWorld 仍有效时。重新设置同一 Scene 内的 parent 不触发 Detach/Attach。
 
-推荐渐进方案：
+`RigidBodyComponent` 构造函数只保存 `RigidBodyDesc`，`OnAttach` 从 Scene 取得 PhysicsWorld 并创建 Body，`OnDetach` 先销毁 Body、使 Handle 失效，再清空 World 观察指针。这样游戏侧创建保持为：
 
-1. 第一版由构造函数显式注入 `PhysicsWorld&`：
-
-   ```cpp
-   object->AddComponent<RigidBodyComponent>(
-       scene.GetPhysicsWorld(), bodyDesc);
-   ```
-
-   构造时只保存创建请求；当 owner 已设置后，在第一次物理同步阶段注册 Body。析构/销毁时通过 World 注销。
-
-2. 当 Camera、Light、Physics 等注册需求增多后，再统一增加 `Component::OnAttach()` / `OnDetach()` 和 `GameObject::GetScene()`，不要只为物理做一套特殊生命周期。
+```cpp
+object->AddComponent<RigidBodyComponent>(bodyDesc);
+```
 
 不能在 Component 构造函数中读取 `m_owner`，因为 `AddComponent<T>()` 是先构造、后 `AttachComponent()`，此时 owner 仍为空。也不要只依靠普通 `OnUpdate()` 注册，否则 disabled/未更新对象可能永远不进入物理世界。
 
-注册和注销操作应进入 PhysicsWorld 自己的 pending command 队列，在物理 Step 前后安全点执行。Bullet 正在执行碰撞检测或遍历 manifold 时，不要直接增删 Body。
+当前 Attach/Detach 都发生在 Bullet Step 之外，可以直接注册和注销。加入碰撞事件回调后，注册和注销操作应进入 PhysicsWorld 自己的 pending command 队列，在物理 Step/事件派发前后安全点执行；Bullet 正在执行碰撞检测或遍历 manifold 时不能直接增删 Body。
 
 ## 固定时间步与 Scene 更新流程
 
@@ -511,7 +504,9 @@ Scene Flush 决定对象/组件所有权，Physics Flush 决定 Bullet World 注
 
 基础检查后补充了以下约束：`PhysicsWorldDesc` 会拒绝非有限重力、非正 fixed step、零 substep 预算和小于 fixed step 的累计上限；Scene 会拒绝负数/非有限 delta，累计总量被限制在 `maxAccumulatedTime`，耗尽 substep 预算后丢弃逾期的完整步，避免跨帧形成无限追赶；替换 PhysicsWorld 会验证配置、禁止在 Update 中执行并重置 accumulator；重力修改会同步到公开 Desc。PhysicsWorld 地址固定，不支持复制或移动，为以后组件保存 World 观察引用提供稳定语义。Bullet include 与库链接也已经收回 engine 的 PRIVATE 边界。
 
-`CollisionShape` 当前仍是占位文件，尚未创建任何 collision object 或 rigid body，因此现阶段只能验证世界初始化、时钟和空世界模拟，不能验证碰撞与 Transform 同步。
+当前已经实现基础 CollisionShape 描述、带 generation 的 Body Handle、Static/Kinematic/Dynamic RigidBody、Compound Shape、力/冲量/速度、Teleport、启用状态，以及固定步前后的 Kinematic Push 和 Dynamic Pull。GameObject/Component 的 Scene 生命周期也已补齐：挂接后调用 `OnAttach`，组件移除、对象销毁和 Scene Clear 前调用 `OnDetach`；RigidBody 在这两个回调中对称创建和销毁 Bullet Body。
+
+实现检查进一步明确：Compound 的 child shape 和 TriangleMesh 的 backing mesh 必须由 BodySlot 一并拥有；单 Collider 的 local offset 也必须通过 Compound 表达；混合 Trigger/非 Trigger Collider 在当前“一个 Bullet Body”模型下会被拒绝。PhysicsWorld 只能在空 Scene 中替换，避免现有 RigidBodyComponent 保存的 World 观察指针失效。
 
 1. 建立 `PhysicsTypes.h`、GLM/Bullet 转换函数和 `PhysicsWorld::Impl`，只创建/销毁空 Bullet World并设置重力。
 2. 实现 Box Static Body，验证 Scene Clear、组件删除和 World 析构无泄漏、无悬空对象。

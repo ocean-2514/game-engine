@@ -9,7 +9,6 @@ public:
 
     TestObject(
         Shape shape,
-        glm::vec3 color,
         eng::AssetManager& assetManager);
     
 protected:
@@ -21,7 +20,6 @@ public:
 
 private:
     Shape m_shape;
-    glm::vec3 m_color;
 };
 
 #endif

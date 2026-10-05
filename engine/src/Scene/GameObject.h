@@ -24,7 +24,7 @@ class RenderQueue;
 
 class GameObject {
 public:
-    virtual ~GameObject() = default;
+    virtual ~GameObject();
 
     GameObject(const GameObject&) = delete;
     GameObject(GameObject&&) = delete;
@@ -43,10 +43,10 @@ public:
 
     const glm::vec3& GetPosition() const;
     void SetPosition(const glm::vec3& position);
-    //rotation angle expressed in degrees
+    void SetWorldPosition(const glm::vec3& worldPosition);
     const glm::quat& GetRotation() const;
-    //rotation angle expressed in degrees
     void SetRotation(const glm::quat& rotation);
+    void SetWorldRotation(const glm::quat& worldRotation);
     // angle expressed in degrees
     void Rotate(float angle, const glm::vec3& axis);
     const glm::vec3& GetScale() const;
@@ -138,6 +138,9 @@ private:
     // called only by AddComponent
     bool AttachComponent(std::unique_ptr<Component> component);
     bool AttachComponentImmediate(std::unique_ptr<Component> component);
+    void AttachToScene(Scene& scene);
+    void DetachFromScene();
+    void DetachComponent(Component& component);
     void FlushPendingCommands();
     void UpdateComponents(float deltaTime,
         bool fixedDeltaTime = false);
@@ -146,6 +149,7 @@ private:
     void RenderTree(RenderQueue& queue);
 
     std::string m_name;
+    Scene* m_scene = nullptr;
     GameObject* m_parent = nullptr;
     std::vector<std::unique_ptr<GameObject>> m_children;
     std::vector<std::unique_ptr<Component>> m_components;
