@@ -53,6 +53,24 @@ glm::vec3 RigidBodyComponent::GetAngularVelocity() const {
         : glm::vec3{0.0f};
 }
 
+void RigidBodyComponent::SetLocalInertia(const glm::vec3& inertia) {
+    if (m_world) {
+        m_world->SetLocalInertia(m_body, inertia);
+    }
+}
+
+void RigidBodyComponent::SetAngularFactor(const glm::vec3& factor) {
+    if (m_world) {
+        m_world->SetAngularFactor(m_body, factor);
+    }
+}
+
+void RigidBodyComponent::SetWorldRotation(const glm::quat& rotation) {
+    if (m_world) {
+        m_world->SetWorldRotation(m_body, rotation);
+    }
+}
+
 void RigidBodyComponent::Teleport(const glm::vec3& worldPosition,
     const glm::quat& worldRotation, bool clearVelocity) {
     if (m_world && m_world->Teleport(
@@ -91,6 +109,34 @@ void RigidBodyComponent::PullDynamicTransform() {
     }
 }
 
+bool RigidBodyComponent::ApplyRenderInterpolation(float alpha) {
+    if (!m_world || !m_owner || m_hasRenderOverride ||
+        m_desc.motionType != BodyMotionType::Dynamic) {
+        return false;
+    }
+
+    glm::vec3 position;
+    glm::quat rotation;
+    if (!m_world->GetInterpolatedBodyTransform(
+            m_body, alpha, position, rotation)) {
+        return false;
+    }
+
+    m_savedWorldPosition = m_owner->GetWorldPosition();
+    m_savedWorldRotation = m_owner->GetWorldRotation();
+    m_owner->SetWorldPosition(position);
+    m_owner->SetWorldRotation(rotation);
+    m_hasRenderOverride = true;
+    return true;
+}
+
+void RigidBodyComponent::RestoreSimulationTransform() {
+    if (!m_hasRenderOverride || !m_owner) return;
+    m_owner->SetWorldPosition(m_savedWorldPosition);
+    m_owner->SetWorldRotation(m_savedWorldRotation);
+    m_hasRenderOverride = false;
+}
+
 void RigidBodyComponent::OnAttach(Scene& scene) {
     m_world = scene.GetPhysicsWorld();
     if (m_world) {
@@ -99,11 +145,15 @@ void RigidBodyComponent::OnAttach(Scene& scene) {
             std::cout << "RigidBodyComponent::OnAttach: failed to create body\n";
             m_world = nullptr;
             MarkForDestroy();
+            return;
         }
+        scene.RegisterRigidBody(this, m_body);
     }
 }
 
-void RigidBodyComponent::OnDetach(Scene&) {
+void RigidBodyComponent::OnDetach(Scene& scene) {
+    RestoreSimulationTransform();
+    scene.UnregisterRigidBody(this);
     if (m_world && m_body.IsValid()) {
         m_world->DestroyBody(m_body);
     }
@@ -111,5 +161,8 @@ void RigidBodyComponent::OnDetach(Scene&) {
     m_world = nullptr;
 }
 
+const PhysicsWorld* RigidBodyComponent::GetWorld() const {
+    return m_world;
+}
 
 } // namespace eng

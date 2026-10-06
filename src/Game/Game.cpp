@@ -47,28 +47,29 @@ bool Game::Init() {
     light->Rotate(60.0f, glm::vec3(-1.0f, 0.0f, 0.0f));
 
     const auto model = ModelFactory::CreatePlayerModel();
-    // const auto model = assets.LoadModel("model/odette/奥黛塔.pmx"); 
     eng::GameObject* modelObj = scene.InstantiateModel(model);
     if (!modelObj) return false;
     modelObj->SetPosition(glm::vec3{0.0f, 0.1f, 1.0f});
-    modelObj->AddComponent<eng::RigidBodyComponent>(eng::RigidBodyDesc{
-        .motionType = eng::BodyMotionType::Kinematic,
-        .mass = 0.0f,
-        .colliders = {
-            eng::ColliderDesc{
-                .shape = eng::BoxShapeDesc{
-                    glm::vec3{0.55f, 0.975f, 0.35f}},
-                .localPosition = glm::vec3{0.0f, -0.125f, 0.0f},
-            }
-        },
-    });
+    auto* rigidBodyComp = modelObj->AddComponent<eng::RigidBodyComponent>(
+        eng::RigidBodyDesc{
+            .motionType = eng::BodyMotionType::Dynamic,
+            .mass = 1.0f,
+            .colliders = {
+                eng::ColliderDesc{
+                    .shape = eng::BoxShapeDesc{glm::vec3{0.55f, 0.975f, 0.35f}},
+                    .localPosition = glm::vec3{0.0f, -0.125f, 0.0f},
+                }
+            },
+        });
     auto* animationComp = modelObj->GetComponent<eng::AnimationComponent>();
     animationComp->SetController(ModelFactory::CreatePlayerAnimatorController());
     camera = scene.CreateObject<Camera>("MainCamera", modelObj);
     auto* controller = modelObj->AddComponent<ThirdPerspectiveController>(
         &player,
-        static_cast<eng::GameObject*>(camera));
-    controller->SetAnimationComponent(animationComp);
+        static_cast<eng::GameObject*>(camera),
+        animationComp,
+        rigidBodyComp
+    );
     
     return true;
 }
@@ -86,6 +87,24 @@ void Game::Update(float deltaTime) {
     }
 
     scene.Update(deltaTime);
+
+    const auto& collisionEvents = scene.GetCollisionEvents();
+    for (const auto& event : collisionEvents) {
+        if (event.key.first.index == 0) continue;
+        if (event.phase == eng::PhysicsEventPhase::Enter) {
+            std::cout << "Collision Enter: "
+                << event.key.first.index << " <-> "
+                << event.key.second.index << "\n";
+        } else if (event.phase == eng::PhysicsEventPhase::Stay) {
+            std::cout << "Collision Stay: "
+                << event.key.first.index << " <-> "
+                << event.key.second.index << "\n";
+        } else if (event.phase == eng::PhysicsEventPhase::Exit) {
+            std::cout << "Collision Exit: "
+                << event.key.first.index << " <-> "
+                << event.key.second.index << "\n";
+        }
+    }
 }
 
 void Game::Render(eng::RenderQueue& queue) {

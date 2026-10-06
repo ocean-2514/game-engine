@@ -19,8 +19,11 @@ public:
     ~BulletPhysicsWorld();
     
     void Simulate(float fixedDeltaTime);
+    void UpdateCollisionEvents();
     void SetGravity(const glm::vec3& gravity);
     glm::vec3 GetGravity() const;
+    const std::vector<PhysicsEvent>& GetCollisionEvents() const;
+    void ClearCollisionEvents();
 
     PhysicsBodyHandle CreateBody(const RigidBodyDesc& desc,
         const glm::vec3& position, const glm::quat& rotation);
@@ -34,7 +37,9 @@ public:
     glm::vec3 GetLinearVelocity(PhysicsBodyHandle handle) const;
     void SetAngularVelocity(PhysicsBodyHandle handle, const glm::vec3& velocity);
     glm::vec3 GetAngularVelocity(PhysicsBodyHandle handle) const;
-
+    void SetLocalInertia(PhysicsBodyHandle handle, const glm::vec3& inertia);
+    void SetAngularFactor(PhysicsBodyHandle handle, const glm::vec3& factor);
+    void SetWorldRotation(PhysicsBodyHandle handle, const glm::quat& rotation);
     bool Teleport(PhysicsBodyHandle handle,
         const glm::vec3& worldPosition,
         const glm::quat& worldRotation,
@@ -45,6 +50,12 @@ public:
     bool GetBodyTransform(PhysicsBodyHandle handle,
         glm::vec3& outWorldPosition,
         glm::quat& outWorldRotation) const;
+    bool GetInterpolatedBodyTransform(PhysicsBodyHandle handle,
+        float alpha,
+        glm::vec3& outWorldPosition,
+        glm::quat& outWorldRotation) const;
+    bool RaycastClosest(const RaycastDesc& query,
+        RaycastHit& hit) const;
 
     void WakeUp(PhysicsBodyHandle handle);
     void SetBodyEnabled(PhysicsBodyHandle handle, bool enabled);
@@ -57,6 +68,9 @@ private:
         int16_t collisionLayer = 1;
         int16_t collisionMask = -1;
         glm::vec3 gravityFactor{1.0f};
+        BodyMotionType motionType = BodyMotionType::Static;
+        btTransform previousTransform;
+        btTransform currentTransform;
         // Declaration order matters: reverse destruction must release body,
         // motion state and shapes before triangle mesh backing storage.
         std::vector<std::unique_ptr<btStridingMeshInterface>> meshInterfaces;
@@ -76,6 +90,8 @@ private:
 
     std::vector<BodySlot> m_slots;
     std::vector<uint32_t> m_freeIndices;
+    std::unordered_map<ContactPairKey, bool, ContactPairKeyHash> m_contactPairs;
+    std::vector<PhysicsEvent> m_collisionEvents;
 };
 
 

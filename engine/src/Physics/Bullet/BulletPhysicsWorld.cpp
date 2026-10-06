@@ -2,12 +2,32 @@
 #include "Physics/Bullet/BulletConversions.h"
 
 #include <cmath>
+#include <algorithm>
 
 namespace eng
 {
 
 namespace
 {
+
+struct IncludeTriggerRayResultCallback final
+    : btCollisionWorld::ClosestRayResultCallback {
+    bool includeTriggers = true;
+
+    IncludeTriggerRayResultCallback(const btVector3& from,
+        const btVector3& to, bool include)
+        : btCollisionWorld::ClosestRayResultCallback(from, to),
+          includeTriggers(include) {}
+
+    bool needsCollision(btBroadphaseProxy* proxy) const override {
+        if (!ClosestRayResultCallback::needsCollision(proxy)) return false;
+        if (includeTriggers) return true;
+        const auto* object = static_cast<const btCollisionObject*>(
+            proxy->m_clientObject);
+        return object && !(object->getCollisionFlags() &
+            btCollisionObject::CF_NO_CONTACT_RESPONSE);
+    }
+};
 
 bool IsFinite(float value) {
     return std::isfinite(value);
@@ -89,6 +109,12 @@ bool HasIdentityOffset(const ColliderDesc& collider) {
             glm::vec3(rotation.x, rotation.y, rotation.z)) <= 1e-12f;
 }
 
+bool IsRaycastDescValid(const RaycastDesc& desc) {
+    return IsFiniteVector(desc.origin) && IsFiniteVector(desc.direction) &&
+        glm::length(desc.direction) > 0.0f &&
+        IsFinite(desc.maxDistance) && desc.maxDistance > 0.0f;
+}
+
 } // namespace
 
 
@@ -118,7 +144,74 @@ BulletPhysicsWorld::~BulletPhysicsWorld() {
 }
 
 void BulletPhysicsWorld::Simulate(float fixedDeltaTime) {
+    for (auto& slot : m_slots) {
+        if (slot.alive && slot.enabled && slot.body &&
+            slot.motionType == BodyMotionType::Dynamic) {
+            slot.previousTransform = slot.currentTransform;
+        }
+    }
     m_world->stepSimulation(fixedDeltaTime, 0, fixedDeltaTime);
+    for (auto& slot : m_slots) {
+        if (slot.alive && slot.enabled && slot.body &&
+            slot.motionType == BodyMotionType::Dynamic) {
+            slot.currentTransform = slot.body->getWorldTransform();
+        }
+    }
+}
+
+void BulletPhysicsWorld::UpdateCollisionEvents() {
+    std::unordered_map<ContactPairKey, bool, ContactPairKeyHash> newContactPairs;
+
+    int numManifolds = m_world->getDispatcher()->getNumManifolds();
+    for (int i = 0; i < numManifolds; ++i) {
+        btPersistentManifold* manifold = m_world->getDispatcher()->getManifoldByIndexInternal(i);
+        const btCollisionObject* objA = manifold->getBody0();
+        const btCollisionObject* objB = manifold->getBody1();
+
+        bool hasTouchingContact = false;
+        for (int j = 0; j < manifold->getNumContacts(); ++j) {
+            if (manifold->getContactPoint(j).getDistance() <= 0.0f) {
+                hasTouchingContact = true;
+                break;
+            }
+        }
+        if (hasTouchingContact) {
+            ContactPairKey pairKey{
+                {static_cast<uint32_t>(objA->getUserIndex()), static_cast<uint32_t>(objA->getUserIndex2())},
+                {static_cast<uint32_t>(objB->getUserIndex()), static_cast<uint32_t>(objB->getUserIndex2())}};
+            bool isTriggerA = objA->getCollisionFlags() & btCollisionObject::CF_NO_CONTACT_RESPONSE;
+            bool isTriggerB = objB->getCollisionFlags() & btCollisionObject::CF_NO_CONTACT_RESPONSE;
+            bool isTrigger = isTriggerA || isTriggerB;
+            newContactPairs.emplace(pairKey, isTrigger);
+
+            PhysicsEventPhase phase = m_contactPairs.find(pairKey) == m_contactPairs.end() ?
+                PhysicsEventPhase::Enter : PhysicsEventPhase::Stay;
+
+            std::vector<ContactPoint> contactPoints;
+            contactPoints.reserve(manifold->getNumContacts());
+            for (int j = 0; j < manifold->getNumContacts(); ++j) {
+                const btManifoldPoint& point = manifold->getContactPoint(j);
+                if (point.getDistance() > 0.0f) continue;
+                ContactPoint contactPoint;
+                contactPoint.position = ToGlmVec3(point.getPositionWorldOnB());
+                contactPoint.normal = ToGlmVec3(point.m_normalWorldOnB);
+                contactPoint.penetration = -point.getDistance();
+                contactPoint.impulse = point.m_appliedImpulse;
+                contactPoints.push_back(contactPoint);
+            }
+
+            m_collisionEvents.push_back({pairKey, phase, isTrigger, std::move(contactPoints)});
+        }
+    }
+
+    for (const auto& [pairKey, wasTrigger] : m_contactPairs) {
+        if (newContactPairs.find(pairKey) == newContactPairs.end()) {
+            m_collisionEvents.push_back(
+                {pairKey, PhysicsEventPhase::Exit, wasTrigger, {}});
+        }
+    }
+
+    m_contactPairs = std::move(newContactPairs);
 }
 
 void BulletPhysicsWorld::SetGravity(const glm::vec3& gravity) {
@@ -133,6 +226,15 @@ void BulletPhysicsWorld::SetGravity(const glm::vec3& gravity) {
 
 glm::vec3 BulletPhysicsWorld::GetGravity() const {
     return ToGlmVec3(m_world->getGravity());
+}
+
+const std::vector<PhysicsEvent>&
+    BulletPhysicsWorld::GetCollisionEvents() const {
+    return m_collisionEvents;
+}
+
+void BulletPhysicsWorld::ClearCollisionEvents() {
+    m_collisionEvents.clear();
 }
 
 PhysicsBodyHandle BulletPhysicsWorld::CreateBody(const RigidBodyDesc& desc,
@@ -204,8 +306,13 @@ PhysicsBodyHandle BulletPhysicsWorld::CreateBody(const RigidBodyDesc& desc,
     slot.collisionLayer = static_cast<int16_t>(desc.collisionLayer);
     slot.collisionMask = static_cast<int16_t>(desc.collisionMask);
     slot.gravityFactor = desc.gravityFactor;
+    slot.motionType = desc.motionType;
+    slot.previousTransform = transform;
+    slot.currentTransform = transform;
     slot.alive = true;
     slot.enabled = true;
+    slot.body->setUserIndex(static_cast<int>(index));
+    slot.body->setUserIndex2(static_cast<int>(slot.generation));
     return PhysicsBodyHandle{index, m_slots[index].generation};
 }
 
@@ -273,6 +380,40 @@ glm::vec3 BulletPhysicsWorld::GetAngularVelocity(PhysicsBodyHandle handle) const
     return glm::vec3(0.0f);
 }
 
+void BulletPhysicsWorld::SetLocalInertia(PhysicsBodyHandle handle, 
+    const glm::vec3& inertia) {
+    if (btRigidBody* body = GetBody(handle)) {
+        body->setMassProps(body->getMass(), ToBtVector3(inertia));
+    }
+}
+
+void BulletPhysicsWorld::SetAngularFactor(PhysicsBodyHandle handle, 
+    const glm::vec3& factor) {
+    if (btRigidBody* body = GetBody(handle)) {
+        body->setAngularFactor(ToBtVector3(factor));
+    }
+}
+
+void BulletPhysicsWorld::SetWorldRotation(PhysicsBodyHandle handle, 
+    const glm::quat& rotation) {
+    if (btRigidBody* body = GetBody(handle)) {
+        const btQuaternion bulletRotation =
+            ToBtQuaternion(glm::normalize(rotation));
+        btTransform transform = body->getWorldTransform();
+        transform.setRotation(bulletRotation);
+        body->setWorldTransform(transform);
+        if (auto* motionState = body->getMotionState()) {
+            motionState->setWorldTransform(transform);
+        }
+
+        auto& slot = m_slots[handle.index];
+        slot.previousTransform.setRotation(bulletRotation);
+        slot.currentTransform.setRotation(bulletRotation);
+        m_world->updateSingleAabb(body);
+        body->activate(true);
+    }
+}
+
 bool BulletPhysicsWorld::Teleport(PhysicsBodyHandle handle,
     const glm::vec3& worldPosition, const glm::quat& worldRotation,
     bool clearVelocity) {
@@ -292,6 +433,9 @@ bool BulletPhysicsWorld::Teleport(PhysicsBodyHandle handle,
     }
     body->activate();
     m_world->updateSingleAabb(body);
+    auto& slot = m_slots[handle.index];
+    slot.previousTransform = transform;
+    slot.currentTransform = transform;
     return true;
 }
 
@@ -307,6 +451,9 @@ bool BulletPhysicsWorld::SetKinematicTransform(PhysicsBodyHandle handle,
         }
         body->activate(true);
         m_world->updateSingleAabb(body);
+        auto& slot = m_slots[handle.index];
+        slot.previousTransform = transform;
+        slot.currentTransform = transform;
         return true;
     }
     return false;
@@ -319,6 +466,46 @@ bool BulletPhysicsWorld::GetBodyTransform(PhysicsBodyHandle handle,
         const btTransform& transform = body->getWorldTransform();
         outWorldPosition = ToGlmVec3(transform.getOrigin());
         outWorldRotation = ToGlmQuat(transform.getRotation());
+        return true;
+    }
+    return false;
+}
+
+bool BulletPhysicsWorld::GetInterpolatedBodyTransform(
+    PhysicsBodyHandle handle, float alpha,
+    glm::vec3& outWorldPosition,
+    glm::quat& outWorldRotation) const {
+    if (!GetBody(handle)) return false;
+    const auto& slot = m_slots[handle.index];
+    const btVector3 position = slot.previousTransform.getOrigin().lerp(
+        slot.currentTransform.getOrigin(), alpha);
+    const btQuaternion rotation = slot.previousTransform.getRotation().slerp(
+        slot.currentTransform.getRotation(), alpha);
+    outWorldPosition = ToGlmVec3(position);
+    outWorldRotation = glm::normalize(ToGlmQuat(rotation));
+    return true;
+}
+
+bool BulletPhysicsWorld::RaycastClosest(
+    const RaycastDesc& query, RaycastHit& hit) const {
+    if (!IsRaycastDescValid(query)) return false;
+    btVector3 from = ToBtVector3(query.origin);
+    glm::vec3 direction = glm::normalize(query.direction);
+    btVector3 to = ToBtVector3(query.origin + direction * query.maxDistance);
+    IncludeTriggerRayResultCallback callback{from, to, query.includeTriggers};
+    callback.m_collisionFilterMask = query.collisionMask;
+    m_world->rayTest(from, to, callback);
+    if (callback.hasHit()) {
+        uint32_t index = static_cast<uint32_t>(callback.m_collisionObject->getUserIndex());
+        uint32_t generation = static_cast<uint32_t>(callback.m_collisionObject->getUserIndex2());
+        if (index >= m_slots.size()) return false;
+        if (!m_slots[index].alive || m_slots[index].generation != generation) return false;
+
+        hit.body = PhysicsBodyHandle{index, generation};
+        hit.point = ToGlmVec3(callback.m_hitPointWorld);
+        hit.normal = ToGlmVec3(callback.m_hitNormalWorld);
+        hit.distance = callback.m_closestHitFraction * query.maxDistance;
+        hit.fraction = callback.m_closestHitFraction;
         return true;
     }
     return false;

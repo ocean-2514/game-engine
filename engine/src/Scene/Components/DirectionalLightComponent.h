@@ -15,6 +15,10 @@ public:
         float intensity = 1.0f);
 
     glm::vec3 GetDirection() const;
+
+protected:
+    void OnAttach(Scene& scene) override;
+    void OnDetach(Scene& scene) override;
 };
 
 

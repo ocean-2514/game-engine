@@ -29,6 +29,10 @@ public:
     void SetOuterConeAngle(float angle);
     glm::vec3 GetDirection() const;
 
+protected:
+    void OnAttach(Scene& scene) override;
+    void OnDetach(Scene& scene) override;
+
 private:
     float m_range = 10.0f;
     // expressed in degrees

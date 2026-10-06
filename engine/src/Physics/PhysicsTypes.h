@@ -77,6 +77,70 @@ struct PhysicsBodyHandle {
     bool IsValid() const { return index != InvalidIndex; }
 };
 
+struct RaycastDesc {
+    glm::vec3 origin{0.0f};
+    glm::vec3 direction{0.0f, 0.0f, -1.0f};
+    float maxDistance = 1000.0f;
+    uint16_t collisionMask = 0xFFFF;
+    bool includeTriggers = false;
+};
+
+struct RaycastHit {
+    PhysicsBodyHandle body{};
+    glm::vec3 point{0.0f};
+    glm::vec3 normal{0.0f};
+    float distance = 0.0f;
+    float fraction = 0.0f;
+};
+
+struct ContactPairKey {
+    PhysicsBodyHandle first;
+    PhysicsBodyHandle second;
+
+    bool operator==(const ContactPairKey& other) const {
+        return (first.index == other.first.index &&
+                first.generation == other.first.generation &&
+                second.index == other.second.index &&
+                second.generation == other.second.generation) ||
+               (first.index == other.second.index &&
+                first.generation == other.second.generation &&
+                second.index == other.first.index &&
+                second.generation == other.first.generation);
+    }
+};
+
+struct ContactPairKeyHash {
+    std::size_t operator()(const ContactPairKey& key) const {
+        auto& min = key.first.index < key.second.index ? key.first : key.second;
+        auto& max = key.first.index < key.second.index ? key.second : key.first;
+        std::size_t h1 = std::hash<uint32_t>()(min.index);
+        std::size_t h2 = std::hash<uint32_t>()(min.generation);
+        std::size_t h3 = std::hash<uint32_t>()(max.index);
+        std::size_t h4 = std::hash<uint32_t>()(max.generation);
+
+        // Combine the hashes using a simple method
+        return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3);
+    }
+};
+
+struct ContactPoint {
+    glm::vec3 position{0.0f};
+    glm::vec3 normal{0.0f};
+    float penetration = 0.0f;
+    float impulse = 0.0f;
+};
+
+enum class PhysicsEventPhase {
+    Enter, Stay, Exit
+};
+
+struct PhysicsEvent {
+    ContactPairKey key;
+    PhysicsEventPhase phase;
+    bool trigger = false;
+    std::vector<ContactPoint> points;
+};
+
 } // namespace eng
 
 

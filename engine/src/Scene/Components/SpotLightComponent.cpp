@@ -1,5 +1,6 @@
 #include "Scene/Components/SpotLightComponent.h"
 #include "Scene/GameObject.h"
+#include "Scene/Scene.h"
 #include <algorithm>
 #include <cmath>
 #include <glm/glm.hpp>
@@ -56,6 +57,14 @@ glm::vec3 SpotLightComponent::GetDirection() const {
     return m_owner->GetWorldForward();
 }
 
+void SpotLightComponent::OnAttach(Scene& scene) {
+    LightComponent::OnAttach(scene);
+    scene.RegisterLight(LightType::Spot, this);
+}
 
+void SpotLightComponent::OnDetach(Scene& scene) {
+    scene.UnregisterLight(this);
+    LightComponent::OnDetach(scene);
+}
 
 } // namespace eng

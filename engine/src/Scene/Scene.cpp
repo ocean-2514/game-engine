@@ -36,6 +36,9 @@ void Scene::Update(float deltaTime) {
 
         if (m_physicsWorld) {
             const auto& desc = m_physicsWorld->GetDesc();
+            // Events describe only the fixed steps processed by this frame.
+            // Keep them available after Update() for polling by game code.
+            m_physicsWorld->ClearCollisionEvents();
             float maxAccumulatedTime = desc.maxAccumulatedTime;
             float fixedTimeStep = desc.fixedTimeStep;
             uint32_t maxSubStepFrame = desc.maxSubStepsPerFrame;
@@ -51,6 +54,7 @@ void Scene::Update(float deltaTime) {
                 PushKinematicTransforms();
                 m_physicsWorld->Simulate(fixedTimeStep);
                 PullDynamicTransforms();
+                m_physicsWorld->UpdateCollisionEvents();
                 ++step;
                 m_physicsAccumulator -= fixedTimeStep;
             }
@@ -76,6 +80,12 @@ void Scene::Render(RenderQueue& queue, float aspect) {
 
 void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect) {
     if (!IsValidComponent(camera)) return;
+
+    RenderInterpolate();
+    struct InterpolationGuard {
+        Scene& scene;
+        ~InterpolationGuard() { scene.RestoreSimulationTransforms(); }
+    } interpolationGuard{*this};
 
     CameraData cameraData{
         camera->GetPosition(),
@@ -138,37 +148,42 @@ void Scene::UpdateObjects(float deltaTime, bool fixedDeltaTime) {
 
 void Scene::PushKinematicTransforms() {
     if (!m_physicsWorld) return;
-    for (auto& object : m_objects) {
-        PushKinematicTransformsTree(object.get());
-    }
-}
-
-void Scene::PushKinematicTransformsTree(GameObject* object) {
-    if (!object || !object->IsAlive()) return;
-    if (auto* rigidBodyComp = object->GetComponent<RigidBodyComponent>()) {
-        rigidBodyComp->PushKinematicTransform();
-    }
-
-    for (auto& child : object->m_children) {
-        PushKinematicTransformsTree(child.get());
+    for (auto& registeredBody : m_registeredBodies) {
+        if (registeredBody.component && registeredBody.component->IsAlive()) {
+            registeredBody.component->PushKinematicTransform();
+        }
     }
 }
 
 void Scene::PullDynamicTransforms() {
     if (!m_physicsWorld) return;
-    for (auto& object : m_objects) {
-        PullDynamicTransformsTree(object.get());
+    for (auto& registeredBody : m_registeredBodies) {
+        if (registeredBody.component && registeredBody.component->IsAlive()) {
+            registeredBody.component->PullDynamicTransform();
+        }
     }
 }
 
-void Scene::PullDynamicTransformsTree(GameObject* object) {
-    if (!object || !object->IsAlive()) return;
-    if (auto* rigidBodyComp = object->GetComponent<RigidBodyComponent>()) {
-        rigidBodyComp->PullDynamicTransform();
-    }
+void Scene::RenderInterpolate() {
+    if (!m_physicsWorld) return;
+    const auto& desc = m_physicsWorld->GetDesc();
+    float fixedTimeStep = desc.fixedTimeStep;
+    if (fixedTimeStep <= 0.0f) return;
 
-    for (auto& child : object->m_children) {
-        PullDynamicTransformsTree(child.get());
+    const float alpha = std::clamp(
+        m_physicsAccumulator / fixedTimeStep, 0.0f, 1.0f);
+    for (auto& registeredBody : m_registeredBodies) {
+        if (registeredBody.component && registeredBody.component->IsAlive()) {
+            registeredBody.component->ApplyRenderInterpolation(alpha);
+        }
+    }
+}
+
+void Scene::RestoreSimulationTransforms() {
+    for (auto& registeredBody : m_registeredBodies) {
+        if (registeredBody.component) {
+            registeredBody.component->RestoreSimulationTransform();
+        }
     }
 }
 
@@ -431,52 +446,48 @@ GameObject* Scene::ProcessModelNode(
 }
 
 void Scene::CollectLightingData(LightingData& data) const {
-    for (const auto& object : m_objects) {
-        CollectLightingDataRecursive(object.get(), data);
-    }
-}
-
-void Scene::CollectLightingDataRecursive(const GameObject* object, 
-    LightingData& data) const {
-    if (object == nullptr || !object->IsAlive()) {
-        return;
-    }
-    
-    if (const auto* directionalLight = 
-        object->GetComponent<DirectionalLightComponent>(); 
-        directionalLight != nullptr) {
-        data.directionalLights.push_back({
-            directionalLight->GetDirection(),
-            directionalLight->GetIntensity(),
-            directionalLight->GetColor()
-        });
-    }
-    if (const auto* pointLight = 
-        object->GetComponent<PointLightComponent>();
-        pointLight != nullptr) {
-        data.pointLights.push_back({
-            pointLight->GetPosition(),
-            pointLight->GetRange(), 
-            pointLight->GetColor(), 
-            pointLight->GetIntensity()
-        });
-    }
-    if (const auto* spotLight = 
-        object->GetComponent<SpotLightComponent>();
-        spotLight != nullptr) {
-        data.spotLights.push_back({
-            spotLight->GetPosition(),
-            spotLight->GetRange(), 
-            spotLight->GetDirection(), 
-            spotLight->GetIntensity(), 
-            spotLight->GetColor(), 
-            spotLight->GetInnerConeCos(),
-            spotLight->GetOuterConeCos()
-        });
-    } 
-
-    for (const auto& child : object->m_children) {
-        CollectLightingDataRecursive(child.get(), data);
+    for (const auto& light : m_registeredLights) {
+        if (light.component && light.component->IsAlive()) {
+            switch (light.type) {
+            case LightType::Directional: {
+                const auto* directionalLight =
+                    static_cast<const DirectionalLightComponent*>(light.component);
+                data.directionalLights.push_back({
+                    directionalLight->GetDirection(),
+                    directionalLight->GetIntensity(),
+                    directionalLight->GetColor()
+                });
+                break;
+            }
+            case LightType::Point: {
+                const auto* pointLight =
+                    static_cast<const PointLightComponent*>(light.component);
+                data.pointLights.push_back({
+                    pointLight->GetPosition(),
+                    pointLight->GetRange(),
+                    pointLight->GetColor(),
+                    pointLight->GetIntensity()
+                });
+                break;
+            }
+            case LightType::Spot: {
+                const auto* spotLight =
+                    static_cast<const SpotLightComponent*>(light.component);
+                data.spotLights.push_back({
+                    spotLight->GetPosition(),
+                    spotLight->GetRange(),
+                    spotLight->GetDirection(),
+                    spotLight->GetIntensity(),
+                    spotLight->GetColor(),
+                    spotLight->GetInnerConeCos(),
+                    spotLight->GetOuterConeCos()
+                });
+                break;
+            }
+            default:
+                break;
+            }
+        }
     }
 }
 
@@ -521,6 +532,14 @@ const PhysicsWorld* Scene::GetPhysicsWorld() const {
     return m_physicsWorld.get();
 }
 
+const std::vector<PhysicsEvent>& Scene::GetCollisionEvents() const {
+    if (m_physicsWorld) {
+        return m_physicsWorld->GetCollisionEvents();
+    }
+    static const std::vector<PhysicsEvent> emptyEvents;
+    return emptyEvents;
+}
+
 std::size_t Scene::GetRootObjectCount() const {
     return m_objects.size();
 }
@@ -531,6 +550,40 @@ GameObject* Scene::GetRootObject(std::size_t index) {
 
 const GameObject* Scene::GetRootObject(std::size_t index) const {
     return index < m_objects.size() ? m_objects[index].get() : nullptr;
+}
+
+void Scene::RegisterRigidBody(RigidBodyComponent* component, PhysicsBodyHandle handle) {
+    if (!component || !handle.IsValid()) {
+        return;
+    }
+    m_registeredBodies.push_back({component, handle});
+}
+
+void Scene::UnregisterRigidBody(RigidBodyComponent* component) {
+    m_registeredBodies.erase(
+        std::remove_if(m_registeredBodies.begin(), m_registeredBodies.end(),
+            [component](const RegisteredBody& body) {
+                return body.component == component;
+            }),
+        m_registeredBodies.end()
+    );
+}
+
+void Scene::RegisterLight(LightType type, LightComponent* component) {
+    if (!component) {
+        return;
+    }
+    m_registeredLights.push_back({type, component});
+}
+
+void Scene::UnregisterLight(LightComponent* component) {
+    m_registeredLights.erase(
+        std::remove_if(m_registeredLights.begin(), m_registeredLights.end(),
+            [component](const RegisteredLight& light) {
+                return light.component == component;
+            }),
+        m_registeredLights.end()
+    );
 }
 
 } // namespace eng

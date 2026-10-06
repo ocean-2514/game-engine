@@ -20,9 +20,12 @@ public:
     PhysicsWorld& operator=(PhysicsWorld&& other) = delete;
 
     void Simulate(float fixedDeltaTime);
+    void UpdateCollisionEvents();
     void SetGravity(const glm::vec3& gravity);
     glm::vec3 GetGravity() const;
     const PhysicsWorldDesc& GetDesc() const;
+    const std::vector<PhysicsEvent>& GetCollisionEvents() const;
+    void ClearCollisionEvents();
     bool IsValid() const;
 
     void AddForce(PhysicsBodyHandle handle, const glm::vec3& force);
@@ -33,7 +36,9 @@ public:
     glm::vec3 GetLinearVelocity(PhysicsBodyHandle handle) const;
     void SetAngularVelocity(PhysicsBodyHandle handle, const glm::vec3& velocity);
     glm::vec3 GetAngularVelocity(PhysicsBodyHandle handle) const;
-
+    void SetLocalInertia(PhysicsBodyHandle handle, const glm::vec3& inertia);
+    void SetAngularFactor(PhysicsBodyHandle handle, const glm::vec3& factor);
+    void SetWorldRotation(PhysicsBodyHandle handle, const glm::quat& rotation);
     bool Teleport(PhysicsBodyHandle handle,
         const glm::vec3& worldPosition,
         const glm::quat& worldRotation,
@@ -44,6 +49,12 @@ public:
     bool GetBodyTransform(PhysicsBodyHandle handle,
         glm::vec3& outWorldPosition,
         glm::quat& outWorldRotation) const;
+    bool GetInterpolatedBodyTransform(PhysicsBodyHandle handle,
+        float alpha,
+        glm::vec3& outWorldPosition,
+        glm::quat& outWorldRotation) const;
+    bool RaycastClosest(const RaycastDesc& query,
+        RaycastHit& hit) const;
 
     void WakeUp(PhysicsBodyHandle handle);
     void SetBodyEnabled(PhysicsBodyHandle handle, bool enabled);

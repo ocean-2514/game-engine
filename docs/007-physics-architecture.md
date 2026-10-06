@@ -1,8 +1,8 @@
 # 物理系统架构
 
-- 状态：设计草案
+- 状态：第一阶段基础链路已实现，持续迭代
 - 后端：Bullet Physics（Bullet 2 API）
-- 最后更新：2026-10-03
+- 最后更新：2026-10-05
 
 ## 目标与第一阶段范围
 
@@ -95,9 +95,9 @@ public:
 
     void Simulate(float fixedDeltaTime);
     void SetGravity(const glm::vec3& gravity);
-    const glm::vec3& GetGravity() const;
+    glm::vec3 GetGravity() const;
 
-    bool Raycast(const RaycastDesc& query, RaycastHit& hit) const;
+    bool RaycastClosest(const RaycastDesc& query, RaycastHit& hit) const;
     std::vector<RaycastHit> RaycastAll(const RaycastDesc& query) const;
 };
 ```
@@ -329,7 +329,7 @@ localTransform = inverse(parentWorldTransform) * physicsWorldTransform
 
 ## 渲染插值
 
-固定 60 Hz 的物理直接写 GameObject，而渲染可能是 144 Hz，会看到轻微阶梯。第一版可以先不插值，确保模拟正确；随后为每个 Dynamic Body 保存：
+固定 60 Hz 的物理直接写 GameObject，而渲染可能是 144 Hz，会看到轻微阶梯。当前实现已经为每个 Dynamic Body 保存：
 
 ```text
 previousPhysicsTransform
@@ -338,13 +338,28 @@ alpha = accumulator / fixedTimeStep
 renderTransform = interpolate(previous, current, alpha)
 ```
 
-不要把插值后的 renderTransform 写回 Bullet 或作为下一次模拟输入，否则会污染物理真值。当前 MeshComponent 直接读取 `GameObject::GetWorldTransform()`，将来可选择：
+位置使用线性插值，旋转使用四元数 `slerp`。`Teleport()` 会同时重置 previous/current，防止瞬移后从旧位置补间；Kinematic 和 Static 不参与该插值缓存。
 
-- GameObject 增加 simulation transform 与 presentation transform；
-- RigidBodyComponent 在渲染提交时提供插值后的矩阵；
-- Scene 在 Render 前临时生成只读 Transform 快照。
+当前 `MeshComponent`、相机和灯光都会直接读取 GameObject 变换，因此采用“渲染阶段临时覆盖”方案：
 
-在真正实现插值前，不要为了视觉平滑让 Bullet 改用可变 deltaTime。
+```text
+Scene::Update
+  -> 固定步模拟
+  -> Dynamic 当前物理姿态写回 GameObject（simulation transform）
+  -> 普通 Update 读取最新模拟姿态
+
+Scene::Render
+  -> RigidBodyComponent 保存当前 GameObject 世界姿态
+  -> 临时写入 interpolated presentation transform
+  -> 收集 CameraData / LightingData 并提交 RenderQueue
+  -> 恢复保存的 simulation transform
+```
+
+恢复由 Render 内的作用域 guard 保证，包括 `BeginView()` 失败提前返回的路径。插值姿态不会写回 Bullet，也不会成为下一次模拟或普通 `OnUpdate()` 的输入。该方案无需立刻修改 GameObject 和 MeshComponent，但仍是过渡设计：以后若渲染快照、并行渲染或复杂动态父子层级成为真实需求，应把 simulation transform 与 presentation transform 正式分离。
+
+标准 accumulator 插值显示的是 previous/current 之间的姿态，因此会引入不超过一个 fixed step 的视觉延迟。这是获得稳定平滑结果的预期代价，而不是额外模拟延迟。
+
+当前仍要求 Dynamic RigidBody 位于根节点，或其父节点是静止、单位缩放的组织节点。多个互为父子的 Dynamic Body 暂不作为受支持用法，因为临时世界姿态覆盖的先后顺序会使层级语义复杂化。
 
 ## 坐标、单位与形状尺寸
 
@@ -383,6 +398,8 @@ Model/Mesh Asset
 
 多个刚体引用同一不可变 shape 时可以缓存；带不同 local scale 的实例要谨慎，因为直接修改共享 Bullet shape 的 scaling 会影响所有实例。可以把 scale 纳入缓存 key，或第一版为不同 scale 创建独立 shape。
 
+当前实现尚未加入物理形状缓存。每个 Body 独立拥有其 Bullet shape；TriangleMesh 的 backing mesh 与 shape 一起由对应 BodySlot 持有，以保证生命周期正确。先保留这一实现，等模型实例数量和加载成本证明缓存有实际收益后，再设计不可变 PhysicsShape 资源及其缓存 key。
+
 ## 碰撞层、Trigger 与过滤
 
 建议公开稳定的 layer/mask，而不是 Bullet flag：
@@ -404,7 +421,7 @@ Trigger/Sensor 仍参与 broadphase 和 overlap 检测，但设置 no-contact-re
 
 不要在 Bullet 内部回调或 manifold 遍历期间直接调用 GameObject 脚本。组件可能在回调中销毁对象、移除刚体或 Clear Scene，这会破坏 Bullet 当前迭代。
 
-建议每个 fixed step 在 `stepSimulation()` 后遍历 dispatcher manifold，得到本步接触 pair，并与上一步集合比较：
+当前实现会在每个 fixed step 的 `stepSimulation()` 后遍历 dispatcher manifold，得到本步接触 pair，并与上一步集合比较：
 
 ```text
 currentPairs - previousPairs -> Enter
@@ -412,7 +429,9 @@ currentPairs ∩ previousPairs -> Stay
 previousPairs - currentPairs -> Exit
 ```
 
-Pair key 使用排序后的两个 PhysicsBodyHandle/ColliderHandle，不使用可能复用的裸地址。事件先写入值类型队列，在完成 Dynamic Transform 同步并离开 Bullet 遍历后派发：
+Pair key 使用带 generation 的两个 `PhysicsBodyHandle`，其相等和哈希语义不依赖可能复用的 Bullet 裸地址。只有 `distance <= 0` 的实际接触点会进入当前集合，避免把 Bullet manifold 中仍被缓存但已经分离的点误报为碰撞。Trigger 状态与 pair 一起保存，因此 Exit 仍能正确区分 Collision 和 Trigger。
+
+事件使用值类型写入 PhysicsWorld 队列：
 
 ```cpp
 struct ContactPoint {
@@ -431,9 +450,9 @@ struct CollisionEvent {
 };
 ```
 
-事件派发前再次通过 generation 验证 Body 是否仍存活。对象本步销毁时，对另一方是否发送 Exit 必须形成固定规则；建议发送一次不含已销毁对象可写指针的 Exit，或者明确销毁不保证 Exit。第一版若暂时使用组件裸指针，应选择后者并在文档/API 注释中说明。
+`Scene::Update()` 开始时清除上一帧事件；本帧所有 fixed step 产生的事件会累积，并在 `Update()` 返回后继续可由 `PhysicsWorld::GetCollisionEvents()` 查询。这样事件不会在生成后立即丢失，也不会把 Bullet manifold 指针暴露出去。一帧包含多个 fixed step 时，同一 pair 可能依次产生 Enter 和 Stay，这是固定步事件的真实顺序，调用方若只关心帧级状态需要自行归并。
 
-组件回调可以逐步增加 `OnCollisionEnter/Stay/Exit` 和 `OnTriggerEnter/Stay/Exit`，也可以先让 PhysicsWorld 提供事件队列由 Scene 分发。不要把 Bullet manifold 指针传出当前 Step。
+当前尚未实现 Scene 到 Component 的自动回调分发，也未增加 `OnCollisionEnter/Stay/Exit` 与 `OnTriggerEnter/Stay/Exit`。在回调 API 确定前，游戏代码先轮询只读事件队列。未来分发前必须再次通过 generation 和 Scene 刚体注册表解析有效组件；对象销毁时是否向另一方补发 Exit 也应在加入回调时形成明确契约。
 
 ## 查询 API
 
@@ -457,7 +476,9 @@ struct RaycastHit {
 };
 ```
 
-direction 在边界处归一化；零向量、负距离或非有限输入直接失败。查询期间不能修改 World。`RaycastClosest`、`RaycastAll`、`OverlapSphere` 足够覆盖第一阶段，Sweep/ShapeCast 在角色控制器阶段再加入。
+当前已经实现 `RaycastClosest`。direction 在边界处归一化；零向量、非正或非有限 maxDistance、非有限 origin/direction 会直接失败。`collisionMask` 控制查询过滤，`includeTriggers` 控制是否命中 Trigger，结果通过带 generation 的 Body Handle 返回。
+
+`RaycastAll`、`OverlapSphere` 尚未实现；Sweep/ShapeCast 留到角色控制器阶段再加入。查询期间不能修改 World。
 
 ## Bullet userPointer
 
@@ -504,19 +525,21 @@ Scene Flush 决定对象/组件所有权，Physics Flush 决定 Bullet World 注
 
 基础检查后补充了以下约束：`PhysicsWorldDesc` 会拒绝非有限重力、非正 fixed step、零 substep 预算和小于 fixed step 的累计上限；Scene 会拒绝负数/非有限 delta，累计总量被限制在 `maxAccumulatedTime`，耗尽 substep 预算后丢弃逾期的完整步，避免跨帧形成无限追赶；替换 PhysicsWorld 会验证配置、禁止在 Update 中执行并重置 accumulator；重力修改会同步到公开 Desc。PhysicsWorld 地址固定，不支持复制或移动，为以后组件保存 World 观察引用提供稳定语义。Bullet include 与库链接也已经收回 engine 的 PRIVATE 边界。
 
-当前已经实现基础 CollisionShape 描述、带 generation 的 Body Handle、Static/Kinematic/Dynamic RigidBody、Compound Shape、力/冲量/速度、Teleport、启用状态，以及固定步前后的 Kinematic Push 和 Dynamic Pull。GameObject/Component 的 Scene 生命周期也已补齐：挂接后调用 `OnAttach`，组件移除、对象销毁和 Scene Clear 前调用 `OnDetach`；RigidBody 在这两个回调中对称创建和销毁 Bullet Body。
+当前已经实现基础 CollisionShape 描述、带 generation 的 Body Handle、Static/Kinematic/Dynamic RigidBody、Compound Shape、力/冲量/速度、Teleport、启用状态，以及固定步前后的 Kinematic Push 和 Dynamic Pull。GameObject/Component 的 Scene 生命周期也已补齐：挂接后调用 `OnAttach`，组件移除、对象销毁和 Scene Clear 前调用 `OnDetach`；RigidBody 在这两个回调中对称创建和销毁 Bullet Body。Scene 维护非拥有的刚体注册表，用于集中执行 Kinematic Push、Dynamic Pull 和渲染插值；创建 Body 失败的组件不会进入注册表。
 
 实现检查进一步明确：Compound 的 child shape 和 TriangleMesh 的 backing mesh 必须由 BodySlot 一并拥有；单 Collider 的 local offset 也必须通过 Compound 表达；混合 Trigger/非 Trigger Collider 在当前“一个 Bullet Body”模型下会被拒绝。PhysicsWorld 只能在空 Scene 中替换，避免现有 RigidBodyComponent 保存的 World 观察指针失效。
 
-1. 建立 `PhysicsTypes.h`、GLM/Bullet 转换函数和 `PhysicsWorld::Impl`，只创建/销毁空 Bullet World并设置重力。
-2. 实现 Box Static Body，验证 Scene Clear、组件删除和 World 析构无泄漏、无悬空对象。
-3. 增加 Dynamic Body、质量/惯性计算、固定时间步和 Physics -> GameObject 世界/局部变换同步。
-4. 增加 Kinematic Body、Teleport、力/冲量、速度和激活接口，明确三种 Body 的 transform authority。
-5. 增加 Sphere/Capsule/Compound，随后实现共享 ConvexHull 与 Static TriangleMesh shape。
-6. 加入 collision layer/mask、Trigger 和延迟事件派发。
-7. 加入 RaycastClosest/RaycastAll/OverlapSphere，并用 Body Handle 返回命中对象。
-8. 增加 Debug Draw 和基础统计：body 数量、active body、substep 数、contact 数和超预算警告。
-9. 最后实现 presentation interpolation；在此之前先用 60 Hz 固定模拟验证行为正确。
+此外已经实现 `RaycastClosest`、Trigger/Collision 的 Enter/Stay/Exit 值事件队列，以及 Dynamic Body 的 presentation interpolation。渲染插值只在 Render 提交期间临时覆盖 GameObject，并在所有返回路径恢复模拟姿态；Teleport 会重置插值历史，避免视觉拖影。
+
+1. **已完成**：建立 `PhysicsTypes.h`、GLM/Bullet 转换函数和 `PhysicsWorld::Impl`，创建/销毁 Bullet World 并设置重力。
+2. **已完成**：实现 Static Body，并保证 Scene Clear、组件删除和 World 析构时注销 Body。
+3. **已完成**：增加 Dynamic Body、质量/惯性计算、固定时间步和 Physics -> GameObject 世界/局部变换同步。
+4. **已完成**：增加 Kinematic Body、Teleport、力/冲量、速度和激活接口，明确三种 Body 的 transform authority。
+5. **基本完成**：增加 Box/Sphere/Capsule/ConvexHull/Compound 和 Static TriangleMesh；共享 PhysicsShape 与形状缓存明确暂缓。
+6. **部分完成**：加入 collision layer/mask、Trigger 和 Enter/Stay/Exit 事件队列；Component 自动回调分发尚未实现。
+7. **部分完成**：实现 `RaycastClosest` 并用 Body Handle 返回命中对象；`RaycastAll`、Overlap 和 Sweep 尚未实现。
+8. **未实现**：Debug Draw 和基础统计，包括 body 数量、active body、substep 数、contact 数与超预算警告。
+9. **已完成基础版本**：presentation interpolation；后续复杂动态父子层级或并行渲染出现时，再升级为独立 presentation transform/渲染快照。
 
 ## 最小验证清单
 
@@ -527,7 +550,7 @@ Scene Flush 决定对象/组件所有权，Physics Flush 决定 Bullet World 注
 - Kinematic Body 能推动 Dynamic Body，但不被反向覆盖；
 - 删除 GameObject、删除 RigidBodyComponent 和 Scene::Clear 后 World 中不残留 Body；
 - Trigger 不产生碰撞响应，但 Enter/Stay/Exit 顺序正确；
-- 碰撞回调中销毁对象不会使 manifold 遍历或事件派发崩溃；
+- 加入组件碰撞回调后，在回调中销毁对象不会使 manifold 遍历或事件派发崩溃；
 - layer/mask 双向过滤符合预期；
 - Raycast 可选择忽略 Trigger，并不会返回已销毁 Body；
 - Dynamic 子节点在允许的父节点约束下能正确把世界变换转换为局部变换；

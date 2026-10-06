@@ -18,6 +18,10 @@ public:
     float GetRange() const;
     void SetRange(float range);
 
+protected:
+    void OnAttach(Scene& scene) override;
+    void OnDetach(Scene& scene) override;
+
 private:
     float m_range = 10.0f;
 };

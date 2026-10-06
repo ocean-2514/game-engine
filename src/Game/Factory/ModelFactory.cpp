@@ -162,7 +162,6 @@ std::shared_ptr<eng::AnimationClip>
     auto bodyTrack = eng::TransformTrack{"body", 0};
     bodyTrack.positions = {
         {0.0f, glm::vec3(0.0f, 0.0f, 0.0f)},
-        {0.5f, glm::vec3(0.0f, 1.0f, 0.0f)},
         {1.0f, glm::vec3(0.0f, 0.0f, 0.0f)}
     };
     animation->tracks.push_back(bodyTrack);
@@ -215,7 +214,7 @@ std::shared_ptr<eng::AnimatorController>
     locomotionToJumping.conditions.push_back({
         jumpParam, eng::AnimatorConditionOp::IsTriggered
     });
-    eng::AnimatorTransitionDefinition jumpingToLocomotion{1, 0, 0.0f, true};
+    eng::AnimatorTransitionDefinition jumpingToLocomotion{1, 0, 0.2f, true, 0.8f};
     controller->AddTransition(locomotionToJumping);
     controller->AddTransition(jumpingToLocomotion);
 

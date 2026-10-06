@@ -3,6 +3,7 @@
 
 #include "Scene/GameObject.h"
 #include "Scene/Components/CameraComponent.h"
+#include "Scene/Components/LightComponent.h"
 #include "Common.h"
 #include "Physics/PhysicsWorld.h"
 
@@ -17,6 +18,7 @@
 namespace eng {
 
 class Model;
+class RigidBodyComponent;
 struct SkeletonPose;
 
 class Scene {
@@ -73,10 +75,15 @@ public:
     bool SetPhysicsWorld(const PhysicsWorldDesc& desc);
     PhysicsWorld* GetPhysicsWorld();
     const PhysicsWorld* GetPhysicsWorld() const;
+    const std::vector<PhysicsEvent>& GetCollisionEvents() const;
     std::size_t GetRootObjectCount() const;
     GameObject* GetRootObject(std::size_t index);
     const GameObject* GetRootObject(std::size_t index) const;
 
+    void RegisterRigidBody(RigidBodyComponent* component, PhysicsBodyHandle handle);
+    void UnregisterRigidBody(RigidBodyComponent* component);
+    void RegisterLight(LightType type, LightComponent* component);
+    void UnregisterLight(LightComponent* component);
 
 private:
     using ObjectContainer = std::vector<std::unique_ptr<GameObject>>;
@@ -100,12 +107,23 @@ private:
         ClearCommand
     >;
 
+    struct RegisteredBody {
+        RigidBodyComponent* component = nullptr;
+        PhysicsBodyHandle handle;
+    };
+
+    struct RegisteredLight {
+        LightType type = LightType::Point;
+        LightComponent* component = nullptr;
+    };
+
     // only called during Update
     void UpdateObjects(float deltaTime, bool fixedDeltaTime = false);
     void PushKinematicTransforms();
-    void PushKinematicTransformsTree(GameObject* object);
     void PullDynamicTransforms();
-    void PullDynamicTransformsTree(GameObject* object);
+    void RenderInterpolate();
+    void RestoreSimulationTransforms();
+
     // used only for CreateObject()
     bool AttachObject(
         std::unique_ptr<GameObject> object,
@@ -138,15 +156,15 @@ private:
         const std::shared_ptr<SkeletonPose>& pose,
         GameObject* modelRoot);
     void CollectLightingData(LightingData& data) const;
-    void CollectLightingDataRecursive(const GameObject* object, 
-        LightingData& data) const;
 
     std::unique_ptr<PhysicsWorld> m_physicsWorld;
     float m_physicsAccumulator = 0.0f;
+    std::vector<RegisteredBody> m_registeredBodies;
 
+    bool m_isUpdating = false;
     ObjectContainer m_objects;
     CameraComponent* m_mainCamera = nullptr;
-    bool m_isUpdating = false;
+    std::vector<RegisteredLight> m_registeredLights;
     std::vector<SceneCommand> m_pendingCommands;
 };
 

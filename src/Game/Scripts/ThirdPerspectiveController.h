@@ -13,20 +13,22 @@ public:
     ENG_COMPONENT_TYPE(ThirdPerspectiveController);
     ThirdPerspectiveController(Player* player,
         eng::GameObject* camera, 
+        eng::AnimationComponent* animationComponent,
+        eng::RigidBodyComponent* rigidBodyComponent,
         float cameraPlayerDistance = 3.0f, 
         float sensitivity = 0.1f);
     
-    void SetAnimationComponent(eng::AnimationComponent* comp);
-
 protected:
     void OnUpdate(float deltaTime) override;
 
 private:
     void ComputeModelYaw(const glm::vec3& moveDirection, float deltaTime);
+    bool CanJump() const;
 
     Player* m_player = nullptr;
     eng::GameObject* m_camera = nullptr;
     eng::AnimationComponent* m_animationComponent = nullptr;
+    eng::RigidBodyComponent* m_rigidBodyComponent = nullptr;
     glm::vec3 m_worldUp{0.0f, 1.0f, 0.0f};
     float m_distance = 3.0f;
     float m_sensitivity = 0.1f;

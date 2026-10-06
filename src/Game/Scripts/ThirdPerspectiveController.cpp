@@ -1,21 +1,22 @@
 #include "Game/Scripts/ThirdPerspectiveController.h"
 
 #include <glm/glm.hpp>
+#include <cmath>
 #include <iostream>
 
 ThirdPerspectiveController::ThirdPerspectiveController(
     Player* player,
-    eng::GameObject* camera, float distance, 
-    float sensitivity) 
-    : m_player(player),
-    m_camera(camera), m_distance(distance), 
-    m_sensitivity(sensitivity) {
+    eng::GameObject* camera, 
+    eng::AnimationComponent* animationComponent,
+    eng::RigidBodyComponent* rigidBodyComponent,
+    float distance, float sensitivity) 
+    : m_player(player), m_camera(camera), 
+    m_animationComponent(animationComponent),
+    m_rigidBodyComponent(rigidBodyComponent),
+    m_distance(distance), m_sensitivity(sensitivity) {
     camera->SetPosition({0.0f, 0.0f, m_distance});
-}
-
-void ThirdPerspectiveController::SetAnimationComponent(
-    eng::AnimationComponent* comp) {
-    m_animationComponent = comp;
+    m_rigidBodyComponent->SetLocalInertia(glm::vec3(0.f, 0.f, 0.f));
+    m_rigidBodyComponent->SetAngularFactor(glm::vec3(0.f, 0.f, 0.f));
 }
 
 
@@ -32,23 +33,12 @@ void ThirdPerspectiveController::OnUpdate(float deltaTime) {
     m_pitch -= delta.y;
     m_pitch = glm::clamp(m_pitch, -89.0f, 89.0f);
 
-    glm::vec3 referenceForward{0.0f, 0.0f, -1.0f};
-    referenceForward -=
-        m_worldUp * glm::dot(referenceForward, m_worldUp);
-    if (glm::dot(referenceForward, referenceForward) < 0.000001f) {
-        referenceForward = glm::vec3{1.0f, 0.0f, 0.0f};
-        referenceForward -=
-            m_worldUp * glm::dot(referenceForward, m_worldUp);
-    }
-    referenceForward = glm::normalize(referenceForward);
-    const glm::vec3 referenceRight =
-        glm::normalize(glm::cross(referenceForward, m_worldUp));
-
     glm::vec3 moveDirection{0.0f};
-    // right and front vectors are in camera space
-    const glm::vec3 right = m_camera->GetWorldRight();
-    const glm::vec3 horizontalFront =
-        glm::normalize(glm::cross(m_worldUp, right));
+    const float cameraYawRadians = glm::radians(m_cameraYawWorld);
+    const glm::vec3 right{
+        std::cos(cameraYawRadians), 0.0f, -std::sin(cameraYawRadians)};
+    const glm::vec3 horizontalFront{
+        -std::sin(cameraYawRadians), 0.0f, -std::cos(cameraYawRadians)};
     if (inputManager.IsKeyPressed(eng::Key::A)) {
         moveDirection -= right;
     } 
@@ -70,7 +60,10 @@ void ThirdPerspectiveController::OnUpdate(float deltaTime) {
     if (inputManager.IsKeyPressed(eng::Key::Space)) {
         if (!m_spacePressed) {
             m_spacePressed = true;
-            m_animationComponent->SetTrigger("Jump");
+            if (CanJump()) {
+                m_animationComponent->SetTrigger("Jump");
+                m_rigidBodyComponent->AddImpulse(glm::vec3{0.0f, 5.0f, 0.0f});
+            }
         }
     } else {
         if (m_spacePressed) m_spacePressed = false;
@@ -98,21 +91,28 @@ void ThirdPerspectiveController::OnUpdate(float deltaTime) {
         m_player->SetSpeed(0.0f);
     }
     m_animationComponent->SetFloat("Speed", m_player->GetSpeed());
+    const float verticalInput = glm::dot(moveDirection, m_worldUp);
+    glm::vec3 velocity{0.0f};
     if (moving) {
         moveDirection = glm::normalize(moveDirection);
-        m_owner->SetPosition(m_owner->GetPosition() +
-            moveDirection * m_player->GetSpeed() * deltaTime);
+        velocity = moveDirection * m_player->GetSpeed();
     }
+    if (std::abs(verticalInput) <= 1e-6f) {
+        const glm::vec3 currentVelocity =
+            m_rigidBodyComponent->GetLinearVelocity();
+        velocity += m_worldUp * glm::dot(currentVelocity, m_worldUp);
+    }
+    m_rigidBodyComponent->SetLinearVelocity(velocity);
     
     ComputeModelYaw(moveDirection, deltaTime);
     glm::quat modelRotation = glm::angleAxis(glm::radians(m_modelCurrentYaw), m_worldUp);
-    m_owner->SetRotation(modelRotation);
+    m_rigidBodyComponent->SetWorldRotation(modelRotation);
 
     float cameraYawLocal = m_cameraYawWorld - m_modelCurrentYaw;
     glm::quat cameraYawRotation = glm::angleAxis(
         glm::radians(cameraYawLocal), m_worldUp);
-    const glm::quat cameraPitchRotation =
-        glm::angleAxis(glm::radians(m_pitch), referenceRight);
+    const glm::quat cameraPitchRotation = glm::angleAxis(
+        glm::radians(m_pitch), glm::vec3{1.0f, 0.0f, 0.0f});
     m_camera->SetPosition({
         m_distance * std::cos(glm::radians(m_pitch)) * std::sin(glm::radians(cameraYawLocal)),
         - m_distance * std::sin(glm::radians(m_pitch)), 
@@ -140,6 +140,19 @@ void ThirdPerspectiveController::ComputeModelYaw(const glm::vec3& moveDirection,
         } else if (diff < -180.0f) {
             m_modelTargetYaw += 360.0f;
         }
-        m_modelCurrentYaw = glm::mix(m_modelCurrentYaw, m_modelTargetYaw, deltaTime * 20.0f);
+        const float blend = 1.0f - std::exp(-20.0f * deltaTime);
+        m_modelCurrentYaw = glm::mix(
+            m_modelCurrentYaw, m_modelTargetYaw, blend);
     }
+}
+
+bool ThirdPerspectiveController::CanJump() const {
+    const auto* world = m_rigidBodyComponent->GetWorld();
+    glm::vec3 pos = m_rigidBodyComponent->GetPosition();
+    pos.y -= 1.08f;
+    eng::RaycastHit hit;
+    if (world->RaycastClosest({pos, -m_worldUp, 0.1f}, hit)) {
+        return true;
+    }
+    return false;
 }

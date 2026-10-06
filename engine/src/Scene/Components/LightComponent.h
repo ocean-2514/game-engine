@@ -6,6 +6,12 @@
 
 namespace eng
 {
+
+enum class LightType {
+    Directional,
+    Point,
+    Spot
+};
     
 class LightComponent : public Component
 {
