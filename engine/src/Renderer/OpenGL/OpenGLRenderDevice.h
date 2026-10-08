@@ -9,6 +9,8 @@ namespace eng {
 
 class OpenGLRenderDevice final : public RenderDevice {
 public:
+    using RenderDevice::CreateMesh;
+
     bool Init(const Window& window) override;
     void Clear(const ClearDesc& desc) override;
     std::shared_ptr<ShaderProgram> CreateShaderProgram(

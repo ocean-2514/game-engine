@@ -4,6 +4,7 @@
 #include <memory>
 
 #include "Graphics/VertexLayout.h"
+#include "Renderer/MeshShape.h"
 
 namespace eng {
 
@@ -17,6 +18,10 @@ class RenderDevice;
 namespace MeshFactory {
 
 VertexLayout GetVertexLayout();
+
+std::shared_ptr<Mesh> CreateMesh(
+    RenderDevice& device,
+    const MeshShapeDesc& desc);
 
 // 平面：位于 XY 平面，法线朝向 +Z。
 std::shared_ptr<Mesh> CreatePlane(

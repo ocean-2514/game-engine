@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <type_traits>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
@@ -12,6 +13,28 @@ namespace eng {
 namespace {
 
 constexpr std::size_t kFloatsPerVertex = 8; // pos(3) + normal(3) + uv(2)
+
+bool IsPositiveFinite(float value) {
+    return std::isfinite(value) && value > 0.0f;
+}
+
+bool IsCommonMeshValid(const CommonMeshDesc& desc) {
+    if (desc.layout.stride == 0 || desc.layout.elements.empty() ||
+        desc.vertices.empty()) {
+        return false;
+    }
+
+    const std::size_t vertexDataSize = desc.vertices.size() * sizeof(float);
+    if (vertexDataSize % desc.layout.stride != 0 ||
+        !std::all_of(desc.vertices.begin(), desc.vertices.end(),
+            [](float value) { return std::isfinite(value); })) {
+        return false;
+    }
+
+    const std::size_t vertexCount = vertexDataSize / desc.layout.stride;
+    return std::all_of(desc.indices.begin(), desc.indices.end(),
+        [vertexCount](uint32_t index) { return index < vertexCount; });
+}
 
 uint32_t VertexCount(const std::vector<float>& vertices) {
     return static_cast<uint32_t>(vertices.size() / kFloatsPerVertex);
@@ -66,6 +89,46 @@ VertexLayout MeshFactory::GetVertexLayout() {
     }};
     layout.Populate();
     return layout;
+}
+
+std::shared_ptr<Mesh> MeshFactory::CreateMesh(
+    RenderDevice& device,
+    const MeshShapeDesc& desc) {
+    return std::visit([&device](const auto& shape) -> std::shared_ptr<Mesh> {
+        using T = std::decay_t<decltype(shape)>;
+        if constexpr (std::is_same_v<T, PlaneMeshDesc>) {
+            if (!IsPositiveFinite(shape.width) ||
+                !IsPositiveFinite(shape.height)) return nullptr;
+            return CreatePlane(device, shape.width, shape.height,
+                shape.widthSegments, shape.heightSegments);
+        } else if constexpr (std::is_same_v<T, BoxMeshDesc>) {
+            if (!IsPositiveFinite(shape.width) ||
+                !IsPositiveFinite(shape.height) ||
+                !IsPositiveFinite(shape.depth)) return nullptr;
+            return CreateBox(device, shape.width, shape.height, shape.depth);
+        } else if constexpr (std::is_same_v<T, CubeMeshDesc>) {
+            if (!IsPositiveFinite(shape.size)) return nullptr;
+            return CreateCube(device, shape.size);
+        } else if constexpr (std::is_same_v<T, SphereMeshDesc>) {
+            if (!IsPositiveFinite(shape.radius)) return nullptr;
+            return CreateSphere(device, shape.radius,
+                shape.widthSegments, shape.heightSegments);
+        } else if constexpr (std::is_same_v<T, CylinderMeshDesc>) {
+            if (!IsPositiveFinite(shape.radius) ||
+                !IsPositiveFinite(shape.height)) return nullptr;
+            return CreateCylinder(device, shape.radius, shape.height,
+                shape.radialSegments);
+        } else if constexpr (std::is_same_v<T, ConeMeshDesc>) {
+            if (!IsPositiveFinite(shape.radius) ||
+                !IsPositiveFinite(shape.height)) return nullptr;
+            return CreateCone(device, shape.radius, shape.height,
+                shape.radialSegments);
+        } else {
+            if (!IsCommonMeshValid(shape)) return nullptr;
+            return device.CreateMesh(shape.layout, shape.vertices,
+                shape.indices);
+        }
+    }, desc);
 }
 
 std::shared_ptr<Mesh> MeshFactory::CreatePlane(

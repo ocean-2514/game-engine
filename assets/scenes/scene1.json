@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "name": "scene1",
+  "settings": {
+    "mainCamera": "main-camera",
+    "physics": {
+      "gravity": [0.0, -9.81, 0.0],
+      "fixedTimeStep": 0.016666667
+    }
+  },
+  "objects": [
+    {
+      "id": "floor",
+      "name": "Floor",
+      "transform": {
+        "position": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [10.0, 1.0, 10.0]
+      },
+      "components": [
+        {
+          "type": "MeshComponent",
+          "mesh": {
+            "kind": "primitive",
+            "primitive": "cube",
+            "size": [1.0, 1.0, 1.0]
+          },
+          "material": "material/container.json"
+        },
+        {
+          "type": "RigidBodyComponent",
+          "motionType": "static",
+          "mass": 0.0,
+          "colliders": [
+            {
+              "shape": "box",
+              "halfExtents": [5.0, 0.5, 5.0],
+              "isTrigger": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "main-camera",
+      "name": "MainCamera",
+      "components": [
+        {
+          "type": "CameraComponent",
+          "fov": 45.0,
+          "near": 0.01,
+          "far": 100.0
+        }
+      ]
+    },
+    {
+      "id": "backpack",
+      "name": "Backpack",
+      "instance": {
+        "kind": "model",
+        "asset": "model/backpack/backpack.obj"
+      }
+    }
+  ]
+}

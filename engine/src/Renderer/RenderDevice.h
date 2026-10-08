@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Graphics/Clear.h"
+#include "Renderer/MeshShape.h"
 #include "Renderer/TextureDesc.h"
 #include "Renderer/RenderState.h"
 
@@ -33,6 +34,8 @@ public:
         const VertexLayout& layout,
         const std::vector<float>& vertices,
         const std::vector<uint32_t>& indices = {}) = 0;
+    std::shared_ptr<Mesh> CreateMesh(
+        const MeshShapeDesc& desc);
     // The device must copy or consume pixel data before this call returns;
     // it must not retain the borrowed pixels pointer.
     virtual std::shared_ptr<Texture> CreateTexture(
