@@ -19,16 +19,16 @@
       },
       "components": [
         {
-          "type": "MeshComponent",
+          "type": "engine.MeshComponent",
           "mesh": {
             "kind": "primitive",
             "primitive": "cube",
-            "size": [1.0, 1.0, 1.0]
+            "size": 1.0
           },
           "material": "material/container.json"
         },
         {
-          "type": "RigidBodyComponent",
+          "type": "engine.RigidBodyComponent",
           "motionType": "static",
           "mass": 0.0,
           "colliders": [
@@ -46,7 +46,7 @@
       "name": "MainCamera",
       "components": [
         {
-          "type": "CameraComponent",
+          "type": "engine.CameraComponent",
           "fov": 45.0,
           "near": 0.01,
           "far": 100.0

@@ -13,6 +13,7 @@
 #include <string>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 #include <cstdint>
 #include <utility>
@@ -96,6 +97,56 @@ struct SceneDesc {
     std::string name;
     SceneSettingsDesc settings;
     std::vector<SceneObjectDesc> objects;
+};
+
+struct SceneAssetKey {
+    std::string jsonPath;
+    std::string slot; // "mesh", "material", "model"
+
+    bool operator==(const SceneAssetKey& other) const noexcept;
+};
+
+struct SceneAssetKeyHash {
+    std::size_t operator()(const SceneAssetKey& key) const noexcept;
+};
+
+class ResolvedAsset {
+public:
+    virtual ~ResolvedAsset() = default;
+};
+
+template<typename T>
+class ResolvedAssetValue final : public ResolvedAsset {
+public:
+    explicit ResolvedAssetValue(std::shared_ptr<T> value)
+        : value(std::move(value)) {}
+
+    std::shared_ptr<T> value;
+};
+
+class ResolvedSceneAssets {
+public:
+    template<typename T>
+    void Store(SceneAssetKey key, std::shared_ptr<T> value) {
+        m_assets.insert_or_assign(
+            std::move(key),
+            std::make_shared<ResolvedAssetValue<T>>(std::move(value)));
+    }
+
+    template<typename T>
+    std::shared_ptr<T> Find(const SceneAssetKey& key) const {
+        const auto it = m_assets.find(key);
+        if (it == m_assets.end()) return nullptr;
+        const auto* value = dynamic_cast<const ResolvedAssetValue<T>*>(
+            it->second.get());
+        return value ? value->value : nullptr;
+    }
+
+private:
+    std::unordered_map<
+        SceneAssetKey,
+        std::shared_ptr<const ResolvedAsset>,
+        SceneAssetKeyHash> m_assets;
 };
 
 } // namespace eng

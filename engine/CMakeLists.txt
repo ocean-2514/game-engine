@@ -137,13 +137,21 @@ set(ENGINE_SRC
     src/Physics/Bullet/BulletConversions.h
     src/Scene/Components/RigidBodyComponent.cpp
     src/Scene/Components/RigidBodyComponent.h
+    src/Assets/SceneDesc.cpp
     src/Assets/SceneDesc.h
     src/Assets/SceneLoadResult.h
     src/Renderer/MeshShape.h
+    src/Assets/SceneLoadContext.cpp
+    src/Assets/SceneLoadContext.h
+    src/Assets/SceneTypeRegistry.cpp
+    src/Assets/SceneTypeRegistry.h
+    src/Assets/SceneComponentCodecs.cpp
+    src/Assets/SceneComponentCodecs.h
+    src/Assets/SceneAssetLoader.cpp
+    src/Assets/SceneAssetLoader.h
 )
 
-add_library(engine STATIC ${ENGINE_SRC}
-    src/Assets/SceneLoadContext.h)
+add_library(engine STATIC ${ENGINE_SRC})
 
 target_include_directories(engine PRIVATE
     ${BULLET3_ROOT}/src
