@@ -1,4 +1,4 @@
-#include "Assets/SceneTypeRegistry.h"
+#include "Assets/Scene/SceneTypeRegistry.h"
 
 namespace eng
 {

@@ -1,9 +1,9 @@
 #ifndef O_SCENE_TYPE_REGISTRY
 #define O_SCENE_TYPE_REGISTRY
 
-#include "Assets/SceneLoadResult.h"
-#include "Assets/SceneDesc.h"
-#include "Assets/SceneLoadContext.h"
+#include "Assets/Scene/SceneLoadResult.h"
+#include "Assets/Scene/SceneDesc.h"
+#include "Assets/Scene/SceneLoadContext.h"
 #include "Scene/Component.h"
 #include "Scene/GameObject.h"
 
@@ -24,7 +24,7 @@ struct ComponentCodec {
             const SceneParseContext&,
             std::string_view jsonPath
         )>;
-    using ResolveFn = std::function<SceneLoadResult<void>(
+    using ResolveFn = std::function<bool(
         const SceneTypePayload&,
         SceneDependencyContext&
     )>;
@@ -46,7 +46,7 @@ struct GameObjectCodec {
             const rapidjson::Value&,
             const SceneParseContext&,
             std::string_view jsonPath)>;
-    using ResolveFn = std::function<SceneLoadResult<void>(
+    using ResolveFn = std::function<bool(
         const SceneTypePayload&,
         SceneDependencyContext&)>;
     using CreateFn = std::function<SceneLoadResult<

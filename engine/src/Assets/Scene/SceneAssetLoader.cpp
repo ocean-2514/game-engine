@@ -1,5 +1,5 @@
-#include "Assets/SceneAssetLoader.h"
-#include "Assets/SceneTypeRegistry.h"
+#include "Assets/Scene/SceneAssetLoader.h"
+#include "Assets/Scene/SceneTypeRegistry.h"
 #include "IO/FileSystem.h"
 
 #include <rapidjson/document.h>
@@ -191,6 +191,7 @@ bool ParseObject(const rapidjson::Value& value, const std::string& path,
         return false;
     }
     bool success = true;
+    output.jsonPath = path;
     if (!value.HasMember("id") || !value["id"].IsString() ||
         std::string(value["id"].GetString()).empty()) {
         context.ReportError(SceneLoadErrorCode::Schema,
@@ -377,6 +378,7 @@ bool ParseScene(const rapidjson::Value& value, SceneParseContext& context) {
             "root must be an object", "$");
         return false;
     }
+    context.scene.sourcePath = context.sourcePath;
     bool success = true;
     if (!value.HasMember("version") || !value["version"].IsUint()) {
         context.ReportError(SceneLoadErrorCode::Schema,

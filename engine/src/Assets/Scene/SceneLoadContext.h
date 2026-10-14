@@ -1,8 +1,8 @@
 #ifndef O_SCENE_LOAD_CONTEXT
 #define O_SCENE_LOAD_CONTEXT
 
-#include "Assets/SceneDesc.h"
-#include "Assets/SceneLoadResult.h"
+#include "Assets/Scene/SceneDesc.h"
+#include "Assets/Scene/SceneLoadResult.h"
 
 #include <string_view>
 
@@ -33,19 +33,27 @@ struct SceneDependencyContext {
     AssetManager& assets;
     RenderDevice& renderDevice;
 
-    std::string_view sourcePath;
+    std::string sourcePath;
     std::string jsonPath;
     ResolvedSceneAssets& output;
+    std::vector<SceneLoadError>& errors;
 
-    SceneLoadError ReportError(
+    void ReportError(
         SceneLoadErrorCode code,
-        std::string message) const;
+        std::string message,
+        std::string referencedPath = {}) const;
 };
     
 struct SceneLoadContext {
     AssetManager& assets;
     RenderDevice& renderDevice;
     InputManager* input = nullptr;
+    std::string sourcePath;
+    std::string jsonPath;
+
+    SceneLoadError MakeError(
+        SceneLoadErrorCode code,
+        std::string message) const;
 };
 
 

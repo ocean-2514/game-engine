@@ -100,14 +100,3 @@ void TextureAssetLoader::ClearCache() {
 }
 
 } // namespace eng
-
-namespace eng
-{
-    
-
-
-
-
-
-    
-} // namespace eng

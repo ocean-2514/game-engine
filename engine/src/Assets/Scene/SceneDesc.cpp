@@ -1,4 +1,4 @@
-#include "Assets/SceneDesc.h"
+#include "Assets/Scene/SceneDesc.h"
 
 namespace eng
 {

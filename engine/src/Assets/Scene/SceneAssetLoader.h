@@ -1,8 +1,8 @@
 #ifndef O_SCENE_ASSET_LOADER
 #define O_SCENE_ASSET_LOADER
 
-#include "Assets/SceneLoadResult.h"
-#include "SceneDesc.h"
+#include "Assets/Scene/SceneLoadResult.h"
+#include "Assets/Scene/SceneDesc.h"
 
 #include <string>
 

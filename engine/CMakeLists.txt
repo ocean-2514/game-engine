@@ -137,18 +137,25 @@ set(ENGINE_SRC
     src/Physics/Bullet/BulletConversions.h
     src/Scene/Components/RigidBodyComponent.cpp
     src/Scene/Components/RigidBodyComponent.h
-    src/Assets/SceneDesc.cpp
-    src/Assets/SceneDesc.h
-    src/Assets/SceneLoadResult.h
+    src/Assets/Scene/SceneDesc.cpp
+    src/Assets/Scene/SceneDesc.h
+    src/Assets/Scene/SceneLoadResult.h
     src/Renderer/MeshShape.h
-    src/Assets/SceneLoadContext.cpp
-    src/Assets/SceneLoadContext.h
-    src/Assets/SceneTypeRegistry.cpp
-    src/Assets/SceneTypeRegistry.h
-    src/Assets/SceneComponentCodecs.cpp
-    src/Assets/SceneComponentCodecs.h
-    src/Assets/SceneAssetLoader.cpp
-    src/Assets/SceneAssetLoader.h
+    src/Assets/Scene/SceneLoadContext.cpp
+    src/Assets/Scene/SceneLoadContext.h
+    src/Assets/Scene/SceneTypeRegistry.cpp
+    src/Assets/Scene/SceneTypeRegistry.h
+    src/Assets/Scene/ComponentCodec/SceneComponentCodecs.cpp
+    src/Assets/Scene/ComponentCodec/SceneComponentCodecs.h
+    src/Assets/Scene/SceneAssetLoader.cpp
+    src/Assets/Scene/SceneAssetLoader.h
+    src/Assets/Scene/SceneDependencyResolver.cpp
+    src/Assets/Scene/SceneDependencyResolver.h
+    src/Assets/Scene/ComponentCodec/ComponentCodecCommon.cpp
+    src/Assets/Scene/ComponentCodec/ComponentCodecCommon.h
+    src/Assets/Scene/ComponentCodec/CameraComponentCodec.cpp
+    src/Assets/Scene/ComponentCodec/RigidBodyComponentCodec.cpp
+    src/Assets/Scene/ComponentCodec/MeshComponentCodec.cpp
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

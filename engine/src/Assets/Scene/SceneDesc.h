@@ -81,6 +81,7 @@ struct SceneObjectDesc {
     std::string name;
     std::optional<std::string> className;
     std::shared_ptr<const SceneTypePayload> classPayload;
+    std::string jsonPath;
     SceneTransformDesc transform;
     std::optional<SceneInstanceDesc> instance;
     std::vector<SceneComponentDesc> components;
@@ -97,6 +98,7 @@ struct SceneDesc {
     std::string name;
     SceneSettingsDesc settings;
     std::vector<SceneObjectDesc> objects;
+    std::string sourcePath;
 };
 
 struct SceneAssetKey {
