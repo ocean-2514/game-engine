@@ -2,33 +2,39 @@
 #define O_SCENE_ASSET_LOADER
 
 #include "Assets/Scene/SceneLoadResult.h"
-#include "Assets/Scene/SceneDesc.h"
+#include "Scene/Scene.h"
 
+#include <memory>
 #include <string>
 
 namespace eng
 {
-    
+
+class AssetManager;
 class FileSystem;
+class InputManager;
+class RenderDevice;
 class SceneTypeRegistry;
 
-class SceneAssetLoader
-{
+class SceneAssetLoader {
 public:
-    SceneAssetLoader(const FileSystem& filesystem, 
+    SceneAssetLoader(
+        const FileSystem& fileSystem,
+        AssetManager& assets,
+        RenderDevice& renderDevice,
         const SceneTypeRegistry& registry);
-    
-    SceneLoadResult<SceneDesc> Load(
-        const std::string& relativeAssetPath) const;
+
+    SceneLoadResult<std::unique_ptr<Scene>> Load(
+        const std::string& relativeAssetPath,
+        InputManager* input = nullptr) const;
 
 private:
-    const FileSystem& m_filesystem;
+    const FileSystem& m_fileSystem;
+    AssetManager& m_assets;
+    RenderDevice& m_renderDevice;
     const SceneTypeRegistry& m_registry;
 };
 
-
-
 } // namespace eng
-
 
 #endif // O_SCENE_ASSET_LOADER

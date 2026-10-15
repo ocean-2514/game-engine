@@ -9,6 +9,7 @@ bool RegisterBuiltinSceneTypes(SceneTypeRegistry& registry) {
     success &= RegisterCameraComponentCodec(registry);
     success &= RegisterRigidBodyComponentCodec(registry);
     success &= RegisterMeshComponentCodec(registry);
+    success &= RegisterLightComponentCodec(registry);
     return success;
 }
 

@@ -340,6 +340,23 @@ bool Scene::AttachObjectImmediate(std::unique_ptr<GameObject> object,
     return true;
 }
 
+bool Scene::CommitObjects(ObjectContainer roots) {
+    for (const auto& root : roots) {
+        if (!root || !root->IsAlive() || root->m_parent != nullptr ||
+            root->m_scene != nullptr) {
+            return false;
+        }
+    }
+
+    m_objects.reserve(m_objects.size() + roots.size());
+    for (auto& root : roots) {
+        GameObject* object = root.get();
+        m_objects.push_back(std::move(root));
+        object->AttachToScene(*this);
+    }
+    return true;
+}
+
 void Scene::FlushPendingCommands() {
     for (auto& cmd : m_pendingCommands) {
         std::visit([this](auto& value) {
@@ -370,79 +387,85 @@ GameObject* Scene::InstantiateModel(
         return nullptr;
     }
 
-    const auto& rootNode = model->GetNodes()[model->GetRootNodeIndex()];
-    const std::string instanceName = !model->GetName().empty()
-        ? model->GetName()
-        : (!rootNode.name.empty() ? rootNode.name : "Model");
-    GameObject* instanceRoot = CreateObject(instanceName, parent);
-    if (!instanceRoot) {
-        return nullptr;
-    }
-    std::shared_ptr<SkeletonPose> pose;
-    if (!model->GetBones().empty() || !model->GetAnimationClips().empty()) {
-        auto* animation = instanceRoot->AddComponent<AnimationComponent>(model);
-        if (!animation) {
-            instanceRoot->MarkForDestroy();
-            return nullptr;
-        }
-        pose = animation->GetPose();
-    }
-    if (!ProcessModelNode(
-            *model, model->GetRootNodeIndex(), instanceRoot, pose,
-            instanceRoot)) {
-        // In staged mode the dead root will be discarded when commands flush;
-        // in immediate mode it will be removed by the next Scene::Update.
-        instanceRoot->MarkForDestroy();
+    auto instance = BuildDetachedModel(model);
+    if (!instance) {
         std::cout << "Scene::InstantiateModel: failed to create model hierarchy\n";
         return nullptr;
     }
-    return instanceRoot;
+    GameObject* result = instance.get();
+    const std::string name = instance->GetName();
+    return AttachObject(std::move(instance), name, parent) ? result : nullptr;
 }
 
-GameObject* Scene::ProcessModelNode(
+std::unique_ptr<GameObject> Scene::BuildDetachedModel(
+    const std::shared_ptr<Model>& model) {
+    if (!model || !model->IsValid()) return nullptr;
+
+    const auto& rootNode = model->GetNodes()[model->GetRootNodeIndex()];
+    auto root = std::unique_ptr<GameObject>(new GameObject());
+    root->SetName(!model->GetName().empty()
+        ? model->GetName()
+        : (!rootNode.name.empty() ? rootNode.name : "Model"));
+
+    std::shared_ptr<SkeletonPose> pose;
+    if (!model->GetBones().empty() || !model->GetAnimationClips().empty()) {
+        auto animation = std::make_unique<AnimationComponent>(model);
+        pose = animation->GetPose();
+        if (!root->AttachComponent(std::move(animation))) return nullptr;
+    }
+    if (!BuildDetachedModelNode(*model, model->GetRootNodeIndex(),
+            *root, pose, root.get())) {
+        return nullptr;
+    }
+    return root;
+}
+
+bool Scene::BuildDetachedModelNode(
     const Model& model,
     uint32_t nodeIndex,
-    GameObject* parent,
+    GameObject& parent,
     const std::shared_ptr<SkeletonPose>& pose,
     GameObject* modelRoot) {
     const auto& nodes = model.GetNodes();
     const auto& meshes = model.GetMeshes();
     const auto& materials = model.GetMaterials();
-    if (nodeIndex >= nodes.size() || parent == nullptr) {
-        return nullptr;
-    }
+    if (nodeIndex >= nodes.size() || modelRoot == nullptr) return false;
+
     const auto& node = nodes[nodeIndex];
-    GameObject* obj = CreateObject(node.name, parent);
-    if (!obj) {
-        return nullptr;
-    }
-    obj->SetLocalTransform(node.localTransform);
+    auto nodeObject = std::unique_ptr<GameObject>(new GameObject());
+    nodeObject->SetName(node.name);
+    nodeObject->SetLocalTransform(node.localTransform);
+    nodeObject->m_parent = &parent;
+    GameObject* nodePtr = nodeObject.get();
+    parent.m_children.push_back(std::move(nodeObject));
 
-    for (auto meshIndex : node.meshIndices) {
-        if (meshIndex >= meshes.size()) return nullptr;
+    for (uint32_t meshIndex : node.meshIndices) {
+        if (meshIndex >= meshes.size()) return false;
         const auto& mesh = meshes[meshIndex];
-        if (mesh.materialIndex >= materials.size()) return nullptr;
+        if (mesh.materialIndex >= materials.size()) return false;
 
-        GameObject* meshObj = CreateObject(mesh.name, obj);
-        if (!meshObj) return nullptr;
-        Component* component = mesh.skinned
-            ? static_cast<Component*>(meshObj->AddComponent<SkinnedMeshComponent>(
-                mesh.mesh, materials[mesh.materialIndex], pose, modelRoot))
-            : static_cast<Component*>(meshObj->AddComponent<MeshComponent>(
-                mesh.mesh, materials[mesh.materialIndex]));
-        if (!component) {
-            return nullptr;
+        auto meshObject = std::unique_ptr<GameObject>(new GameObject());
+        meshObject->SetName(mesh.name);
+        meshObject->m_parent = nodePtr;
+        std::unique_ptr<Component> component;
+        if (mesh.skinned) {
+            component = std::make_unique<SkinnedMeshComponent>(
+                mesh.mesh, materials[mesh.materialIndex], pose, modelRoot);
+        } else {
+            component = std::make_unique<MeshComponent>(
+                mesh.mesh, materials[mesh.materialIndex]);
         }
+        if (!meshObject->AttachComponent(std::move(component))) return false;
+        nodePtr->m_children.push_back(std::move(meshObject));
     }
 
-    for (auto childIndex : node.children) {
-        if (childIndex >= nodes.size() ||
-            !ProcessModelNode(model, childIndex, obj, pose, modelRoot)) {
-            return nullptr;
+    for (uint32_t childIndex : node.children) {
+        if (!BuildDetachedModelNode(
+                model, childIndex, *nodePtr, pose, modelRoot)) {
+            return false;
         }
     }
-
-    return obj;
+    return true;
 }
 
 void Scene::CollectLightingData(LightingData& data) const {
@@ -522,6 +545,14 @@ bool Scene::SetPhysicsWorld(const PhysicsWorldDesc& desc) {
     m_physicsWorld = std::move(world);
     m_physicsAccumulator = 0.0f;
     return true;
+}
+
+const std::string Scene::GetName() const {
+    return m_name;
+}
+
+void Scene::SetName(std::string name) {
+    m_name = std::move(name);
 }
 
 PhysicsWorld* Scene::GetPhysicsWorld() {

@@ -47,6 +47,25 @@ struct MeshComponentDesc {
     std::string materialPath;
 };
 
+struct PointLightComponentDesc {
+    glm::vec3 color{1.0f};
+    float intensity = 1.0f;
+    float range = 10.0f;
+};
+
+struct DirectionalLightComponentDesc {
+    glm::vec3 color{1.0f};
+    float intensity = 1.0f;
+};
+
+struct SpotLightComponentDesc {
+    glm::vec3 color{1.0f};
+    float intensity = 1.0f;
+    float range = 10.0f;
+    float innerConeAngle = 20.0f;
+    float outerConeAngle = 30.0f;
+};
+
 class SceneTypePayload {
 public:
     virtual ~SceneTypePayload() = default;

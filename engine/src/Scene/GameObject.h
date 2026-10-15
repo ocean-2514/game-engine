@@ -52,6 +52,8 @@ public:
     const glm::vec3& GetScale() const;
     void SetScale(const glm::vec3& scale);
     void SetLocalTransform(const glm::mat4& tranform);
+    void SetLocalTransform(const glm::vec3& pos,
+        const glm::quat& rotation, const glm::vec3& scale);
     glm::mat4 GetLocalTransform() const;
     glm::mat4 GetWorldTransform() const;
     glm::vec3 GetWorldPosition() const;
@@ -162,6 +164,7 @@ private:
     glm::quat m_rotation{1.0f, 0.0f, 0.0f, 0.0f};
 
     friend class Scene;
+    friend class SceneInstantiator;
 };
 
 } // namespace eng

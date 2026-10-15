@@ -52,6 +52,9 @@ namespace Codec
         const auto* typed = dynamic_cast<const SceneTypePayloadValue<T>*>(&payload);
         return typed ? &typed->value : nullptr;
     }
+
+    bool DefaultResolve(const SceneTypePayload&, SceneDependencyContext&);
+
 } // namespace Codec
 
 } // namespace eng

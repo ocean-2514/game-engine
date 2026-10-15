@@ -10,6 +10,7 @@ bool RegisterBuiltinSceneTypes(SceneTypeRegistry& registry);
 bool RegisterCameraComponentCodec(SceneTypeRegistry& registry);
 bool RegisterRigidBodyComponentCodec(SceneTypeRegistry& registry);
 bool RegisterMeshComponentCodec(SceneTypeRegistry& registry);
+bool RegisterLightComponentCodec(SceneTypeRegistry& registry);
 
 } // namespace eng
 

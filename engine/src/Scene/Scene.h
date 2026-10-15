@@ -73,6 +73,8 @@ public:
     const CameraComponent* GetMainCamera() const;
     bool SetMainCamera(CameraComponent* camera);
     bool SetPhysicsWorld(const PhysicsWorldDesc& desc);
+    const std::string GetName() const;
+    void SetName(std::string name);
     PhysicsWorld* GetPhysicsWorld();
     const PhysicsWorld* GetPhysicsWorld() const;
     const std::vector<PhysicsEvent>& GetCollisionEvents() const;
@@ -146,13 +148,16 @@ private:
     bool SetParentImmediate(GameObject* object, GameObject* parent);
     bool AttachObjectImmediate(std::unique_ptr<GameObject> object, 
         std::string name, GameObject* parent);
+    bool CommitObjects(ObjectContainer roots);
     // called only in Update()
     void FlushPendingCommands();
 
-    GameObject* ProcessModelNode(
+    static std::unique_ptr<GameObject> BuildDetachedModel(
+        const std::shared_ptr<Model>& model);
+    static bool BuildDetachedModelNode(
         const Model& model,
         uint32_t nodeIndex,
-        GameObject* parent,
+        GameObject& parent,
         const std::shared_ptr<SkeletonPose>& pose,
         GameObject* modelRoot);
     void CollectLightingData(LightingData& data) const;
@@ -161,11 +166,14 @@ private:
     float m_physicsAccumulator = 0.0f;
     std::vector<RegisteredBody> m_registeredBodies;
 
+    std::string m_name;
     bool m_isUpdating = false;
     ObjectContainer m_objects;
     CameraComponent* m_mainCamera = nullptr;
     std::vector<RegisteredLight> m_registeredLights;
     std::vector<SceneCommand> m_pendingCommands;
+
+    friend class SceneInstantiator;
 };
 
 } // namespace eng

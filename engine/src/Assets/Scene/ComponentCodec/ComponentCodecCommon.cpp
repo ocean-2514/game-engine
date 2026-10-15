@@ -48,7 +48,14 @@ namespace Codec
                 std::string(path) + "." + name);
             return false;
         }
-        output = value.GetFloat();
+        const float parsed = value.GetFloat();
+        if (!std::isfinite(parsed)) {
+            context.ReportError(SceneLoadErrorCode::Schema,
+                std::string("'") + name + "' is outside the finite float range",
+                std::string(path) + "." + name);
+            return false;
+        }
+        output = parsed;
         return true;
     }
 
@@ -82,7 +89,17 @@ namespace Codec
                 return false;
             }
         }
-        output = {value[0].GetFloat(), value[1].GetFloat(), value[2].GetFloat()};
+        const glm::vec3 parsed{
+            value[0].GetFloat(), value[1].GetFloat(), value[2].GetFloat()};
+        for (glm::length_t i = 0; i < 3; ++i) {
+            if (!std::isfinite(parsed[i])) {
+                context.ReportError(SceneLoadErrorCode::Schema,
+                    "vector elements must fit in a finite float",
+                    std::string(path) + "[" + std::to_string(i) + "]");
+                return false;
+            }
+        }
+        output = parsed;
         return true;
     }
 
@@ -114,6 +131,9 @@ namespace Codec
         return true;
     }
 
+    bool DefaultResolve(const SceneTypePayload&, SceneDependencyContext&) {
+        return true;
+    }
     
 } // namespace Codec
 

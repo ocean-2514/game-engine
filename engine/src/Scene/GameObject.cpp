@@ -181,7 +181,7 @@ const glm::quat& GameObject::GetRotation() const {
 }
 
 void GameObject::SetRotation(const glm::quat& rotation) {
-    m_rotation = rotation;
+    m_rotation = glm::normalize(rotation);
 }
 
 void GameObject::SetWorldRotation(const glm::quat& worldRotation) {
@@ -223,6 +223,13 @@ void GameObject::SetLocalTransform(const glm::mat4& transform) {
         std::cout << "GameObject::SetLocalTransform: failed to decompose matrix"
             << std::endl;
     }
+}
+
+void GameObject::SetLocalTransform(const glm::vec3& pos,
+    const glm::quat& rotation, const glm::vec3& scale) {
+    SetPosition(pos);
+    SetRotation(glm::normalize(rotation));
+    SetScale(scale);
 }
 
 glm::mat4 GameObject::GetLocalTransform() const {

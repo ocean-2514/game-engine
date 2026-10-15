@@ -147,8 +147,8 @@ set(ENGINE_SRC
     src/Assets/Scene/SceneTypeRegistry.h
     src/Assets/Scene/ComponentCodec/SceneComponentCodecs.cpp
     src/Assets/Scene/ComponentCodec/SceneComponentCodecs.h
-    src/Assets/Scene/SceneAssetLoader.cpp
-    src/Assets/Scene/SceneAssetLoader.h
+    src/Assets/Scene/SceneAssetParser.cpp
+    src/Assets/Scene/SceneAssetParser.h
     src/Assets/Scene/SceneDependencyResolver.cpp
     src/Assets/Scene/SceneDependencyResolver.h
     src/Assets/Scene/ComponentCodec/ComponentCodecCommon.cpp
@@ -156,6 +156,11 @@ set(ENGINE_SRC
     src/Assets/Scene/ComponentCodec/CameraComponentCodec.cpp
     src/Assets/Scene/ComponentCodec/RigidBodyComponentCodec.cpp
     src/Assets/Scene/ComponentCodec/MeshComponentCodec.cpp
+    src/Assets/Scene/ComponentCodec/LightComponentCodec.cpp
+    src/Assets/Scene/SceneInstantiator.cpp
+    src/Assets/Scene/SceneInstantiator.h
+    src/Assets/Scene/SceneAssetLoader.cpp
+    src/Assets/Scene/SceneAssetLoader.h
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

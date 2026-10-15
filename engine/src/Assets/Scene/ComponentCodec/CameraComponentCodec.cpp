@@ -19,6 +19,7 @@ using Codec::GetPayload;
 using Codec::MakeParseError;
 using Codec::PayloadResult;
 using Codec::ReadFiniteFloat;
+using Codec::DefaultResolve;
 
 SceneLoadResult<std::shared_ptr<const SceneTypePayload>> ParseCamera(
     const rapidjson::Value& value,
@@ -43,10 +44,6 @@ SceneLoadResult<std::shared_ptr<const SceneTypePayload>> ParseCamera(
     return PayloadResult(std::move(desc));
 }
 
-bool ResolveCamera(const SceneTypePayload&, SceneDependencyContext&) {
-    return true;
-}
-
 SceneLoadResult<std::unique_ptr<Component>> CreateCamera(
     const SceneTypePayload& payload,
     const ResolvedSceneAssets&,
@@ -68,7 +65,7 @@ SceneLoadResult<std::unique_ptr<Component>> CreateCamera(
 bool RegisterCameraComponentCodec(SceneTypeRegistry& registry) {
     ComponentCodec codec;
     codec.parse = ParseCamera;
-    codec.resolve = ResolveCamera;
+    codec.resolve = DefaultResolve;
     codec.create = CreateCamera;
     return registry.RegisterComponent("engine.CameraComponent",
         std::move(codec));

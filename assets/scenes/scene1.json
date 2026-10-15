@@ -1,31 +1,23 @@
 {
   "version": 1,
   "name": "scene1",
-  "settings": {
-    "mainCamera": "main-camera",
-    "physics": {
-      "gravity": [0.0, -9.81, 0.0],
-      "fixedTimeStep": 0.016666667
-    }
-  },
   "objects": [
     {
       "id": "floor",
       "name": "Floor",
       "transform": {
-        "position": [0.0, 0.0, 0.0],
-        "rotation": [0.0, 0.0, 0.0, 1.0],
-        "scale": [10.0, 1.0, 10.0]
+        "position": [0.0, -1.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0]
       },
       "components": [
         {
           "type": "engine.MeshComponent",
           "mesh": {
             "kind": "primitive",
-            "primitive": "cube",
-            "size": 1.0
+            "primitive": "box",
+            "size": [10.0, 1.0, 10.0]
           },
-          "material": "material/container.json"
+          "material": "material/container2.json"
         },
         {
           "type": "engine.RigidBodyComponent",
@@ -42,24 +34,69 @@
       ]
     },
     {
-      "id": "main-camera",
-      "name": "MainCamera",
-      "components": [
+      "id": "cube",
+      "name": "Cube",
+      "components":[
         {
-          "type": "engine.CameraComponent",
-          "fov": 45.0,
-          "near": 0.01,
-          "far": 100.0
+          "type":"engine.MeshComponent",
+          "mesh":{
+            "kind":"primitive",
+            "primitive":"cube",
+            "size":1.0
+          },
+          "material":"material/container2.json"
+        },
+        {
+          "type":"engine.RigidBodyComponent",
+          "motionType": "dynamic",
+          "mass": 1.0,
+          "colliders": [
+            {
+              "shape": "box",
+              "halfExtents": [0.5, 0.5, 0.5],
+              "isTrigger": false
+            }
+          ]
         }
       ]
     },
     {
-      "id": "backpack",
-      "name": "Backpack",
-      "instance": {
-        "kind": "model",
-        "asset": "model/backpack/backpack.obj"
-      }
+      "id":"dirLight",
+      "name":"DirLight",
+      "transform":{
+        "rotation":[-0.5, 0, 0, 0.866025]
+      },
+      "components":[
+        {
+          "type":"engine.DirectionalLightComponent"
+        }
+      ]
+    },
+    {
+      "id":"pointLight",
+      "name":"PointLight",
+      "transform":{
+        "position":[2.0, 0.0, 1.0]
+      },
+      "components":[
+        {
+          "type":"engine.PointLightComponent"
+        }
+      ]
+    },
+    {
+      "id":"spotLight",
+      "name":"SpotLight",
+      "transform":{
+        "position":[-2.0, 0.0, 1.0],
+        "rotation":[-0.5, 0, 0, 0.866025]
+      },
+      "components":[
+        {
+          "type":"engine.SpotLightComponent",
+          "intensity": 5.0
+        }
+      ]
     }
   ]
 }

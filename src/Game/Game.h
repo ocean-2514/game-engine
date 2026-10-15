@@ -15,9 +15,7 @@ public:
 
     void Destroy() override;
 
-    std::shared_ptr<eng::Mesh> mesh;
-    std::shared_ptr<eng::Material> material;
-    eng::Scene scene;
+    std::unique_ptr<eng::Scene> scene;
     Camera* camera;
     Player player;
 

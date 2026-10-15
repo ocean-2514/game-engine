@@ -23,6 +23,7 @@ using Codec::PayloadResult;
 using Codec::ReadFiniteFloat;
 using Codec::ReadQuaternion;
 using Codec::ReadVec3;
+using Codec::DefaultResolve;
 
 bool ParseCollider(const rapidjson::Value& value, ColliderDesc& desc,
     const SceneParseContext& context, const std::string& path) {
@@ -275,10 +276,6 @@ SceneLoadResult<std::shared_ptr<const SceneTypePayload>> ParseRigidBody(
     return PayloadResult(std::move(component));
 }
 
-bool ResolveRigidBody(const SceneTypePayload&, SceneDependencyContext&) {
-    return true;
-}
-
 SceneLoadResult<std::unique_ptr<Component>> CreateRigidBody(
     const SceneTypePayload& payload,
     const ResolvedSceneAssets&,
@@ -300,7 +297,7 @@ SceneLoadResult<std::unique_ptr<Component>> CreateRigidBody(
 bool RegisterRigidBodyComponentCodec(SceneTypeRegistry& registry) {
     ComponentCodec codec;
     codec.parse = ParseRigidBody;
-    codec.resolve = ResolveRigidBody;
+    codec.resolve = DefaultResolve;
     codec.create = CreateRigidBody;
     return registry.RegisterComponent("engine.RigidBodyComponent",
         std::move(codec));
