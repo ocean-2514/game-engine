@@ -11,9 +11,11 @@ SceneAssetLoader::SceneAssetLoader(
     const FileSystem& fileSystem,
     AssetManager& assets,
     RenderDevice& renderDevice,
+    AudioManager& audioManager,
     const SceneTypeRegistry& registry)
     : m_fileSystem(fileSystem), m_assets(assets),
-      m_renderDevice(renderDevice), m_registry(registry) {}
+      m_renderDevice(renderDevice), m_audioManager(audioManager),
+      m_registry(registry) {}
 
 SceneLoadResult<std::unique_ptr<Scene>> SceneAssetLoader::Load(
     const std::string& relativeAssetPath,
@@ -34,7 +36,8 @@ SceneLoadResult<std::unique_ptr<Scene>> SceneAssetLoader::Load(
     }
 
     SceneLoadContext context{
-        m_assets, m_renderDevice, input, parsed.Value().sourcePath, {}};
+        m_assets, m_renderDevice, m_audioManager, 
+        input, parsed.Value().sourcePath, {}};
     SceneInstantiator instantiator(m_registry);
     return instantiator.CreateScene(
         parsed.Value(), resolved.Value(), context);

@@ -31,6 +31,9 @@
 #include "Scene/Components/AnimationComponent.h"
 #include "Scene/Components/SkinnedMeshComponent.h"
 #include "Scene/Components/RigidBodyComponent.h"
+#include "Scene/Components/AudioComponent.h"
+#include "Scene/Components/AudioListenerComponent.h"
+#include "Audio/AudioManager.h"
 #include "Physics/PhysicsWorld.h"
 #include "Physics/CollisionShape.h"
 

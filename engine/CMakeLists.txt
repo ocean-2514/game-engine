@@ -45,6 +45,7 @@ set(INSTALL_CMAKE_FILES OFF CACHE BOOL
 add_subdirectory(${BULLET3_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/bullet3 EXCLUDE_FROM_ALL)
 
 set(ENGINE_SRC
+    include/miniaudio/miniaudio.c
     src/Application.cpp
     src/Application.h
     src/Engine.cpp
@@ -161,12 +162,21 @@ set(ENGINE_SRC
     src/Assets/Scene/SceneInstantiator.h
     src/Assets/Scene/SceneAssetLoader.cpp
     src/Assets/Scene/SceneAssetLoader.h
+    src/Audio/AudioManager.cpp
+    src/Audio/AudioManager.h
+    src/Audio/AudioTypes.h
+    src/Scene/Components/AudioComponent.cpp
+    src/Scene/Components/AudioComponent.h
+    src/Scene/Components/AudioListenerComponent.cpp
+    src/Scene/Components/AudioListenerComponent.h
+    src/Assets/Scene/ComponentCodec/AudioComponentCodec.cpp
 )
 
 add_library(engine STATIC ${ENGINE_SRC})
 
 target_include_directories(engine PRIVATE
     ${BULLET3_ROOT}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_include_directories(engine PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src

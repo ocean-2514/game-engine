@@ -19,12 +19,15 @@ namespace eng {
 
 class Model;
 class RigidBodyComponent;
+class AudioComponent;
+class AudioListenerComponent;
 struct SkeletonPose;
+class AudioManager;
 
 class Scene {
 public:
     Scene();
-    ~Scene() = default;
+    ~Scene();
 
     Scene(const Scene&) = delete;
     Scene(Scene&&) = delete;
@@ -73,6 +76,8 @@ public:
     const CameraComponent* GetMainCamera() const;
     bool SetMainCamera(CameraComponent* camera);
     bool SetPhysicsWorld(const PhysicsWorldDesc& desc);
+    void SetAudioManager(AudioManager* manager);
+    AudioManager* GetAudioManager();
     const std::string GetName() const;
     void SetName(std::string name);
     PhysicsWorld* GetPhysicsWorld();
@@ -86,6 +91,10 @@ public:
     void UnregisterRigidBody(RigidBodyComponent* component);
     void RegisterLight(LightType type, LightComponent* component);
     void UnregisterLight(LightComponent* component);
+    void RegisterAudio(AudioComponent* component);
+    void UnregisterAudio(AudioComponent* component);
+    bool SetAudioListener(AudioListenerComponent* component);
+    AudioListenerComponent* GetAudioListener() const;
 
 private:
     using ObjectContainer = std::vector<std::unique_ptr<GameObject>>;
@@ -118,6 +127,8 @@ private:
         LightType type = LightType::Point;
         LightComponent* component = nullptr;
     };
+
+    using RegisteredAudio = AudioComponent*;
 
     // only called during Update
     void UpdateObjects(float deltaTime, bool fixedDeltaTime = false);
@@ -172,6 +183,9 @@ private:
     CameraComponent* m_mainCamera = nullptr;
     std::vector<RegisteredLight> m_registeredLights;
     std::vector<SceneCommand> m_pendingCommands;
+    AudioManager* m_audioManager = nullptr;
+    AudioListenerComponent* m_audioListener = nullptr;
+    std::vector<RegisteredAudio> m_registeredAudios;
 
     friend class SceneInstantiator;
 };

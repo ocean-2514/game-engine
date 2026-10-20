@@ -50,12 +50,22 @@ bool Engine::Init(Application* app, int width, int height) {
     }
 
     m_assetManager = std::make_unique<AssetManager>(
-        m_fileSystem, *m_renderDevice);
+        m_fileSystem, *m_renderDevice, m_audioManager);
+
+    if (!m_audioManager.Init(m_fileSystem)) {
+        std::cout << "Engine::Init: AudioManager initialization failed\n";
+        m_application.reset();
+        m_assetManager.reset();
+        m_renderDevice.reset();
+        m_window.reset();
+        return false;
+    }
 
     if (!m_application->Init()) {
         std::cout << "Engine::Init: application initialization failed\n";
         m_application->Destroy();
         m_application.reset();
+        m_audioManager.Shutdown();
         m_assetManager.reset();
         m_renderDevice.reset();
         m_window.reset();
@@ -80,6 +90,7 @@ void Engine::Run() {
         m_lastTimePoint = currentTimePoint;
 
         m_application->Update(deltaTime);
+        m_audioManager.Update();
         m_application->Render(m_renderQueue);
 
         m_renderQueue.Execute(*m_renderDevice);
@@ -95,6 +106,7 @@ void Engine::Destroy() {
         m_application->Destroy();
         m_application.reset();
     }
+    m_audioManager.Shutdown();
 
     // GPU resources owned by the application and device must die while the
     // window's OpenGL context is still alive.
@@ -135,6 +147,10 @@ FileSystem& Engine::GetFileSystem() {
 
 AssetManager& Engine::GetAssetManager() {
     return *m_assetManager;
+}
+
+AudioManager& Engine::GetAudioManager() {
+    return m_audioManager;
 }
 
 Engine::~Engine() {

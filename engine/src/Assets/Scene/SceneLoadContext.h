@@ -14,6 +14,7 @@ class FileSystem;
 class InputManager;
 class RenderDevice;
 class SceneTypeRegistry;
+class AudioManager;
 
 struct SceneParseContext {
     const FileSystem& filesystem;
@@ -47,6 +48,7 @@ struct SceneDependencyContext {
 struct SceneLoadContext {
     AssetManager& assets;
     RenderDevice& renderDevice;
+    AudioManager& audioManager;
     InputManager* input = nullptr;
     std::string sourcePath;
     std::string jsonPath;

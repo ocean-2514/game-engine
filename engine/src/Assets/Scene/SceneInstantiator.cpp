@@ -1,6 +1,7 @@
 #include "Assets/Scene/SceneInstantiator.h"
 #include "Renderer/Model.h"
 #include "Scene/Components/CameraComponent.h"
+#include "Scene/Components/AudioListenerComponent.h"
 #include "Scene/Scene.h"
 #include "Scene/GameObject.h"
 
@@ -53,6 +54,7 @@ SceneLoadResult<std::unique_ptr<Scene>>
     }
 
     CameraComponent* mainCamera = nullptr;
+    AudioListenerComponent* mainAudioListener = nullptr;
     const auto& settings = desc.settings;
     if (settings.mainCameraId.has_value()) {
         const auto& id = settings.mainCameraId.value();
@@ -74,6 +76,18 @@ SceneLoadResult<std::unique_ptr<Scene>>
         }
     }
 
+    if (settings.mainAudioListenerId.has_value()) {
+        const auto& id = *settings.mainAudioListenerId;
+        auto it = objects.find(id);
+        context.jsonPath = "$.settings.mainAudioListener";
+        if (it == objects.end() ||
+            !(mainAudioListener = it->second->GetComponent<AudioListenerComponent>())) {
+            errors.push_back(context.MakeError(
+                SceneLoadErrorCode::InvalidReference,
+                "main audio listener object has no AudioListenerComponent: " + id));
+        }
+    }
+
     auto scene = std::make_unique<Scene>();
     context.jsonPath = "$.settings.physics";
     if (!scene->SetPhysicsWorld(settings.physics.world)) {
@@ -88,6 +102,7 @@ SceneLoadResult<std::unique_ptr<Scene>>
     }
 
     scene->SetName(desc.name);
+    scene->SetAudioManager(&context.audioManager);
     context.jsonPath = "$.objects";
     if (!scene->CommitObjects(std::move(roots))) {
         return SceneLoadResult<std::unique_ptr<Scene>>::Failure(
@@ -99,6 +114,12 @@ SceneLoadResult<std::unique_ptr<Scene>>
         return SceneLoadResult<std::unique_ptr<Scene>>::Failure(
             context.MakeError(SceneLoadErrorCode::Construction,
                 "failed to register main camera"));
+    }
+    if (mainAudioListener && !scene->SetAudioListener(mainAudioListener)) {
+        context.jsonPath = "$.settings.mainAudioListener";
+        return SceneLoadResult<std::unique_ptr<Scene>>::Failure(
+            context.MakeError(SceneLoadErrorCode::Construction,
+                "failed to register main audio listener"));
     }
     return SceneLoadResult<std::unique_ptr<Scene>>::Success(std::move(scene));
 }

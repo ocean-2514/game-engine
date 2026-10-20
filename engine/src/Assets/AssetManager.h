@@ -20,10 +20,12 @@ class Material;
 class Model;
 class RenderDevice;
 class Texture;
+class AudioManager;
 
 class AssetManager {
 public:
-    AssetManager(const FileSystem& fileSystem, RenderDevice& renderDevice);
+    AssetManager(const FileSystem& fileSystem, 
+        RenderDevice& renderDevice, AudioManager& audioManager);
 
     std::shared_ptr<Texture> LoadTexture(
         const TextureAssetDesc& desc) const;
@@ -48,6 +50,7 @@ public:
 private:
     const FileSystem& m_fileSystem;
     RenderDevice& m_renderDevice;
+    AudioManager& m_audioManager;
     SceneTypeRegistry m_sceneTypeRegistry;
     TextureAssetLoader m_textureLoader;
     MaterialAssetLoader m_materialLoader;

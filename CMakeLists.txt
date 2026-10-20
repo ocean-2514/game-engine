@@ -29,8 +29,6 @@ target_include_directories(my_engine PUBLIC
 )
 target_link_libraries(my_engine PUBLIC engine)
 
-target_compile_definitions(my_engine PRIVATE SHADER_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/shader")
-
 #copy dll
 set(DLL_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/bin/glfw3.dll

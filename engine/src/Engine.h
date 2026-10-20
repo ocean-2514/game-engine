@@ -8,6 +8,7 @@
 #include "Renderer/RenderDevice.h"
 #include "Renderer/RenderQueue.h"
 #include "IO/FileSystem.h"
+#include "Audio/AudioManager.h"
 
 namespace eng {
 
@@ -36,6 +37,7 @@ public:
     RenderQueue& GetRenderQueue();
     FileSystem& GetFileSystem();
     AssetManager& GetAssetManager();
+    AudioManager& GetAudioManager();
     
 private:
     std::unique_ptr<Application> m_application;
@@ -45,6 +47,7 @@ private:
     InputManager m_inputManager;
     RenderQueue m_renderQueue;
     FileSystem m_fileSystem;
+    AudioManager m_audioManager;
 
     std::chrono::system_clock::time_point m_lastTimePoint;
     Engine() = default;

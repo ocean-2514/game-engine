@@ -41,6 +41,8 @@ bool Game::Init() {
     auto* animationComp = modelObj->GetComponent<eng::AnimationComponent>();
     animationComp->SetController(ModelFactory::CreatePlayerAnimatorController());
     camera = scene->CreateObject<Camera>("MainCamera", modelObj);
+    if (!camera || !scene->SetAudioListener(
+        camera->AddComponent<eng::AudioListenerComponent>())) return false;
     auto* controller = modelObj->AddComponent<ThirdPerspectiveController>(
         &player,
         static_cast<eng::GameObject*>(camera),

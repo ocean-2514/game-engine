@@ -59,6 +59,18 @@ namespace Codec
         return true;
     }
 
+    bool ReadBool(const rapidjson::Value& value, const char* key, bool& output,
+        const SceneParseContext& context, const std::string& path) {
+        if (!value.HasMember(key)) return true;
+        if (!value[key].IsBool()) {
+            context.ReportError(SceneLoadErrorCode::Schema,
+                std::string(key) + " must be a boolean", path + "." + key);
+            return false;
+        }
+        output = value[key].GetBool();
+        return true;
+    }
+
     bool ReadInteger(const rapidjson::Value& object, const char* name,
         int& output, int minimum, const SceneParseContext& context,
         const std::string& path) {

@@ -3,6 +3,7 @@
 
 #include "Physics/PhysicsTypes.h"
 #include "Renderer/MeshShape.h"
+#include "Audio/AudioTypes.h"
 
 #include <glm/glm.hpp>
 #ifndef GLM_ENABLE_EXPERIMENTAL
@@ -58,6 +59,9 @@ struct DirectionalLightComponentDesc {
     float intensity = 1.0f;
 };
 
+using AudioComponentDesc = AudioSourceDesc;
+struct AudioListenerComponentDesc {};
+
 struct SpotLightComponentDesc {
     glm::vec3 color{1.0f};
     float intensity = 1.0f;
@@ -109,6 +113,7 @@ struct SceneObjectDesc {
 
 struct SceneSettingsDesc {
     std::optional<std::string> mainCameraId;
+    std::optional<std::string> mainAudioListenerId;
     ScenePhysicsDesc physics;
 };
 

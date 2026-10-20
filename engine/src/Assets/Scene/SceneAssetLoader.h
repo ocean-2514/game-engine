@@ -15,6 +15,7 @@ class FileSystem;
 class InputManager;
 class RenderDevice;
 class SceneTypeRegistry;
+class AudioManager;
 
 class SceneAssetLoader {
 public:
@@ -22,6 +23,7 @@ public:
         const FileSystem& fileSystem,
         AssetManager& assets,
         RenderDevice& renderDevice,
+        AudioManager& audioManager,
         const SceneTypeRegistry& registry);
 
     SceneLoadResult<std::unique_ptr<Scene>> Load(
@@ -32,6 +34,7 @@ private:
     const FileSystem& m_fileSystem;
     AssetManager& m_assets;
     RenderDevice& m_renderDevice;
+    AudioManager& m_audioManager;
     const SceneTypeRegistry& m_registry;
 };
 

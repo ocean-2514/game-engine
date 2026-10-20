@@ -32,6 +32,9 @@ namespace Codec
     bool ReadInteger(const rapidjson::Value& object, const char* name,
         int& output, int minimum, const SceneParseContext& context,
         const std::string& path);
+    
+    bool ReadBool(const rapidjson::Value& value, const char* key, bool& output,
+        const SceneParseContext& context, const std::string& path);
 
     bool ReadVec3(const rapidjson::Value& value, glm::vec3& output,
         const SceneParseContext& context, std::string_view path);

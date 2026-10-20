@@ -7,9 +7,11 @@ namespace eng {
 
 AssetManager::AssetManager(
     const FileSystem& fileSystem,
-    RenderDevice& renderDevice)
+    RenderDevice& renderDevice,
+    AudioManager& audioManager)
     : m_fileSystem(fileSystem),
       m_renderDevice(renderDevice),
+      m_audioManager(audioManager),
       m_textureLoader(fileSystem, renderDevice),
       m_materialLoader(fileSystem, renderDevice, m_textureLoader),
       m_modelLoader(
@@ -52,7 +54,8 @@ SceneLoadResult<std::unique_ptr<Scene>> AssetManager::LoadScene(
     InputManager* input) {
     m_sceneTypeRegistry.Freeze();
     SceneAssetLoader loader(
-        m_fileSystem, *this, m_renderDevice, m_sceneTypeRegistry);
+        m_fileSystem, *this, m_renderDevice,
+        m_audioManager,  m_sceneTypeRegistry);
     return loader.Load(relativePath, input);
 }
 

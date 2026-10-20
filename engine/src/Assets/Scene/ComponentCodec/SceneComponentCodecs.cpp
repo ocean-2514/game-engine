@@ -10,6 +10,7 @@ bool RegisterBuiltinSceneTypes(SceneTypeRegistry& registry) {
     success &= RegisterRigidBodyComponentCodec(registry);
     success &= RegisterMeshComponentCodec(registry);
     success &= RegisterLightComponentCodec(registry);
+    success &= RegisterAudioComponentCodecs(registry);
     return success;
 }
 

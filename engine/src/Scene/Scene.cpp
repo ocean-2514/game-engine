@@ -6,8 +6,11 @@
 #include "Scene/Components/SpotLightComponent.h"
 #include "Scene/Components/PointLightComponent.h"
 #include "Scene/Components/RigidBodyComponent.h"
+#include "Scene/Components/AudioComponent.h"
+#include "Scene/Components/AudioListenerComponent.h"
 #include "Renderer/RenderQueue.h"
 #include "Renderer/Model.h"
+#include "Audio/AudioManager.h"
 
 #include <utility>
 #include <iostream>
@@ -20,6 +23,10 @@ Scene::Scene() {
     m_physicsWorld = std::make_unique<PhysicsWorld>(
         PhysicsWorldDesc{}
     );
+}
+
+Scene::~Scene() {
+    ClearImmediate();
 }
 
 void Scene::Update(float deltaTime) {
@@ -72,6 +79,13 @@ void Scene::Update(float deltaTime) {
 
     // flush commands after objects marked for destroy are destroyed
     FlushPendingCommands();
+
+    for (auto* audioComp : m_registeredAudios) {
+        if (IsValidComponent(audioComp)) {
+            audioComp->PushTransform();
+        }
+    }
+    if (IsValidComponent(m_audioListener)) m_audioListener->PushTransform();
 }
 
 void Scene::Render(RenderQueue& queue, float aspect) {
@@ -294,6 +308,7 @@ bool Scene::IsValidComponent(const Component* component) const {
 void Scene::ClearImmediate() {
     m_mainCamera = nullptr;
     m_objects.clear();
+    SetAudioListener(nullptr);
     m_physicsAccumulator = 0.0f;
 }
 
@@ -547,6 +562,18 @@ bool Scene::SetPhysicsWorld(const PhysicsWorldDesc& desc) {
     return true;
 }
 
+void Scene::SetAudioManager(AudioManager* manager) {
+    if (manager != m_audioManager && !m_objects.empty()) {
+        std::cerr << "Scene::SetAudioManager: set before attaching objects\n";
+        return;
+    }
+    m_audioManager = manager;
+}
+
+AudioManager* Scene::GetAudioManager() {
+    return m_audioManager;
+}
+
 const std::string Scene::GetName() const {
     return m_name;
 }
@@ -615,6 +642,35 @@ void Scene::UnregisterLight(LightComponent* component) {
             }),
         m_registeredLights.end()
     );
+}
+
+void Scene::RegisterAudio(AudioComponent* component) {
+    if (!component) return;
+    m_registeredAudios.push_back(component);
+}
+
+void Scene::UnregisterAudio(AudioComponent* component) {
+    if (!component) return;
+    m_registeredAudios.erase(
+        std::remove_if(m_registeredAudios.begin(), m_registeredAudios.end(),
+            [component](RegisteredAudio audio) {
+                return audio == component;
+            }),
+        m_registeredAudios.end()
+    );
+}
+
+bool Scene::SetAudioListener(AudioListenerComponent* component) {
+    if (component && !IsValidComponent(component)) return false;
+    if (component == m_audioListener) return true;
+    if (component && m_audioManager && !component->PushTransform()) return false;
+    if (!component && m_audioManager) m_audioManager->ClearListener();
+    m_audioListener = component;
+    return true;
+}
+
+AudioListenerComponent* Scene::GetAudioListener() const {
+    return m_audioListener;
 }
 
 } // namespace eng

@@ -344,33 +344,61 @@ bool ParseSettings(const rapidjson::Value& value, SceneParseContext& context) {
         } else context.scene.settings.mainCameraId =
             value["mainCamera"].GetString();
     }
+    if (value.HasMember("mainAudioListener")) {
+        if (!value["mainAudioListener"].IsString() ||
+            std::string(value["mainAudioListener"].GetString()).empty()) {
+            context.ReportError(SceneLoadErrorCode::Schema,
+                "mainAudioListener must be a non-empty object id",
+                "$.settings.mainAudioListener");
+            success = false;
+        } else context.scene.settings.mainAudioListenerId =
+            value["mainAudioListener"].GetString();
+    }
     if (value.HasMember("physics")) success &=
         ParsePhysics(value["physics"], context);
     return success;
 }
 
 void CollectCameraCounts(const SceneObjectDesc& object,
-    std::unordered_map<std::string, std::size_t>& cameras) {
+    std::unordered_map<std::string, std::size_t>& cameras,
+    std::unordered_map<std::string, std::size_t>& listeners) {
     std::size_t count = 0;
+    std::size_t listenerCount = 0;
     for (const auto& component : object.components) {
         if (component.typeName == "engine.CameraComponent") ++count;
+        if (component.typeName == "engine.AudioListenerComponent") ++listenerCount;
     }
     cameras.emplace(object.id, count);
-    for (const auto& child : object.children) CollectCameraCounts(child, cameras);
+    listeners.emplace(object.id, listenerCount);
+    for (const auto& child : object.children)
+        CollectCameraCounts(child, cameras, listeners);
 }
 
 bool ValidateReferences(SceneParseContext& context) {
-    if (!context.scene.settings.mainCameraId) return true;
     std::unordered_map<std::string, std::size_t> cameras;
-    for (const auto& object : context.scene.objects) CollectCameraCounts(object, cameras);
-    const auto it = cameras.find(*context.scene.settings.mainCameraId);
-    if (it == cameras.end() || it->second != 1) {
-        context.ReportError(SceneLoadErrorCode::InvalidReference,
-            "mainCamera must reference an object with one CameraComponent",
-            "$.settings.mainCamera");
-        return false;
+    std::unordered_map<std::string, std::size_t> listeners;
+    for (const auto& object : context.scene.objects)
+        CollectCameraCounts(object, cameras, listeners);
+    bool valid = true;
+    if (context.scene.settings.mainCameraId) {
+        const auto it = cameras.find(*context.scene.settings.mainCameraId);
+        if (it == cameras.end() || it->second != 1) {
+            context.ReportError(SceneLoadErrorCode::InvalidReference,
+                "mainCamera must reference an object with one CameraComponent",
+                "$.settings.mainCamera");
+            valid = false;
+        }
     }
-    return true;
+    if (context.scene.settings.mainAudioListenerId) {
+        const auto it = listeners.find(*context.scene.settings.mainAudioListenerId);
+        if (it == listeners.end() || it->second != 1) {
+            context.ReportError(SceneLoadErrorCode::InvalidReference,
+                "mainAudioListener must reference an object with one AudioListenerComponent",
+                "$.settings.mainAudioListener");
+            valid = false;
+        }
+    }
+    return valid;
 }
 
 bool ParseScene(const rapidjson::Value& value, SceneParseContext& context) {
