@@ -16,6 +16,7 @@ public:
     bool ShouldClose() const override;
     void PollEvents() override;
     void SwapBuffers() override;
+    void SetCursorMode(CursorMode mode) override;
     void SetKeyCallback(KeyCallback callback) override;
     void SetMouseButtonCallback(MouseButtonCallback callback) override;
     void SetCursorPosCallback(CursorPosCallback callback) override;
@@ -27,7 +28,8 @@ private:
     static void OnMouseButton(GLFWwindow* window, int button, int action, int mods);
     static void OnCursorPos(GLFWwindow* window, double xpos, double ypos);
     static void OnMouseScroll(GLFWwindow* window, double xoffset, double yoffset);
-
+    static void OnFrameBufferSize(GLFWwindow* window, int width, int height);
+    static void OnWindowSize(GLFWwindow* window, int width, int height);
 
     GLFWwindow* m_window = nullptr;
     KeyCallback m_keyCallback;

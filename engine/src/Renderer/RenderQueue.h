@@ -6,56 +6,50 @@
 #include <vector>
 #include <glm/mat4x4.hpp>
 
-#include "Common.h"
 #include "Renderer/RenderState.h"
+#include "Renderer/RenderCommand.h"
 
 namespace eng {
 
 class Material;
-class Mesh;
 class ShaderProgram;
 class RenderDevice;
-struct SkeletonPose;
-
-struct RenderCommand {
-    RenderCommand(std::shared_ptr<Mesh> mesh, std::shared_ptr<Material> material, 
-        const glm::mat4& modelMatrix);
-
-    std::shared_ptr<Mesh> mesh;
-    std::shared_ptr<Material> material;
-    glm::mat4 modelMatrix;
-    std::shared_ptr<const SkeletonPose> skeletonPose;
-    RenderPhase phase = RenderPhase::Opaque;
-    int32_t renderOrder = 0;
-};
-
-struct RenderViewData
-{
-    CameraData camera;
-    LightingData lighting;
-};
+class Mesh;
+class FileSystem;
 
 class RenderQueue {
 public:
+    bool Init(RenderDevice& device, FileSystem& fileSystem);
 
-    bool BeginView(const RenderViewData& camera);
+    bool BeginView(const RenderViewData& data);
     void Submit(RenderCommand command);
     void EndView();
-    void Execute(RenderDevice& device);
+    bool BeginScreenView(const ScreenViewDesc& desc);
+    void SubmitScreenQuad(ScreenQuadCommand command);
+    void EndScreenView();
+    void Execute(RenderDevice& device, const Viewport& framebufferViewport);
     void Clear();
+    void ShutDown();
 
     // Call this after changing graphics state outside RenderQueue.
     void InvalidateStateCache();
 
 private:
-    struct QueuedCommand {
+    struct QueuedRenderCommand {
         RenderCommand command;
         uint64_t materialRevision;
     };
 
+    using QueuedScreenQuadCommand = ScreenQuadCommand;
+
     struct RenderView {
         RenderViewData data;
-        std::vector<QueuedCommand> commands;
+        std::vector<QueuedRenderCommand> commands;
+    };
+
+    struct ScreenQuadView {
+        ScreenViewDesc desc;
+        std::vector<QueuedScreenQuadCommand> commands;
     };
 
     struct ShaderState {
@@ -64,20 +58,30 @@ private:
         uint64_t materialRevision = 0;
     };
 
+    void ExecuteRender(RenderDevice& device, const Viewport& framebufferViewport);
+    void ExecuteScreenQuad(RenderDevice& device, const Viewport& framebufferViewport);
+
     ShaderState& GetShaderState(const std::shared_ptr<ShaderProgram>& shader);
     static bool IsValid(const RenderCommand& command);
+    static bool IsValid(const ScreenQuadCommand& command);
     void ApplyRenderState(const RenderState& state,
         RenderDevice& device);
 
     std::vector<ShaderState> m_shaderStates;
     RenderState m_currentRenderState{};
+    RenderState m_screenRenderState{};
     bool m_renderStateCacheValid = false;
     std::weak_ptr<ShaderProgram> m_currentShader;
     std::weak_ptr<Material> m_currentTextureMaterial;
     uint64_t m_currentTextureMaterialRevision = 0;
-    std::vector<std::unique_ptr<RenderView>> m_views;
-    RenderView* m_currentView = nullptr;
 
+    std::vector<std::unique_ptr<RenderView>> m_renderViews;
+    std::vector<std::unique_ptr<ScreenQuadView>> m_screenQuadViews;
+    RenderView* m_currentRenderView = nullptr;
+    ScreenQuadView* m_currentScreenQuadView = nullptr;
+
+    std::shared_ptr<ShaderProgram> m_defaultScreenShader;
+    std::shared_ptr<Mesh> m_quadMesh;
 };
 
 } // namespace eng

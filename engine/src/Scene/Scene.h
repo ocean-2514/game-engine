@@ -4,10 +4,11 @@
 #include "Scene/GameObject.h"
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/LightComponent.h"
-#include "Common.h"
+#include "EngineCommon.h"
 #include "Physics/PhysicsWorld.h"
 
 #include <memory>
+#include <optional>
 #include <cstdint>
 #include <string>
 #include <type_traits>
@@ -23,6 +24,7 @@ class AudioComponent;
 class AudioListenerComponent;
 struct SkeletonPose;
 class AudioManager;
+struct ScreenViewDesc;
 
 class Scene {
 public:
@@ -36,7 +38,10 @@ public:
 
     void Update(float deltaTime);
     void Render(RenderQueue& queue, float aspect);
-    void Render(RenderQueue& queue, CameraComponent* camera, float aspect);
+    // viewport uses framebuffer pixels; omit it for the full framebuffer.
+    void Render(RenderQueue& queue, CameraComponent* camera, float aspect,
+        std::optional<Viewport> viewport = std::nullopt);
+    void Render2D(RenderQueue& queue, const ScreenViewDesc& desc);
     // During Update, Clear is staged as an ordinary ordered command.
     void Clear();
 

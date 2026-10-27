@@ -11,6 +11,7 @@
 #include "Renderer/MeshShape.h"
 #include "Renderer/TextureDesc.h"
 #include "Renderer/RenderState.h"
+#include "EngineCommon.h"
 
 namespace eng {
 
@@ -48,6 +49,7 @@ public:
     virtual void SetBlendState(const BlendState& state) = 0;
     virtual void SetRasterizerState(const RasterizerState& state) = 0;
     virtual void SetRenderState(const RenderState& state) = 0;
+    virtual void SetViewport(const Viewport& viewport) = 0;
 
     static std::unique_ptr<RenderDevice> Create();
 };

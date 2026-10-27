@@ -2,9 +2,25 @@
 
 #include <iostream>
 #include <utility>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 namespace eng {
+
+namespace {
+    
+    int ToGlfwEnum(CursorMode mode) {
+        switch (mode)
+        {
+            case CursorMode::Captured:      return GLFW_CURSOR_CAPTURED;
+            case CursorMode::Disabled:      return GLFW_CURSOR_DISABLED;
+            case CursorMode::Normal:        return GLFW_CURSOR_NORMAL;
+            case CursorMode::Hidden:        return GLFW_CURSOR_HIDDEN;
+            default:                        return GLFW_CURSOR_NORMAL;
+        }
+    }
+
+}
 
 bool GLFWWindow::Init(const WindowDesc& desc) {
     if (glfwInit() != GLFW_TRUE) {
@@ -16,9 +32,6 @@ bool GLFWWindow::Init(const WindowDesc& desc) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    m_width = static_cast<float>(desc.width);
-    m_height = static_cast<float>(desc.height);
-
     m_window = glfwCreateWindow(desc.width, desc.height, desc.title.c_str(), nullptr, nullptr);
     if (m_window == nullptr) {
         std::cout << "GLFWWindow::Init: failed to create window\n";
@@ -28,13 +41,15 @@ bool GLFWWindow::Init(const WindowDesc& desc) {
 
     glfwMakeContextCurrent(m_window);
     glfwSetWindowUserPointer(m_window, this);
-
-    glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwGetWindowSize(m_window, &m_windowWidth, &m_windowHeight);
+    glfwGetFramebufferSize(m_window, &m_frameBufferWidth, &m_frameBufferHeight);
 
     glfwSetKeyCallback(m_window, OnKey);
     glfwSetCursorPosCallback(m_window, OnCursorPos);
     glfwSetMouseButtonCallback(m_window, OnMouseButton);
     glfwSetScrollCallback(m_window, OnMouseScroll);
+    glfwSetFramebufferSizeCallback(m_window, OnFrameBufferSize);
+    glfwSetWindowSizeCallback(m_window, OnWindowSize);
     return true;
 }
 
@@ -56,6 +71,10 @@ void GLFWWindow::PollEvents() {
 
 void GLFWWindow::SwapBuffers() {
     glfwSwapBuffers(m_window);
+}
+
+void GLFWWindow::SetCursorMode(CursorMode mode) {
+    glfwSetInputMode(m_window, GLFW_CURSOR, ToGlfwEnum(mode));
 }
 
 void GLFWWindow::SetKeyCallback(KeyCallback callback) {
@@ -121,6 +140,22 @@ void GLFWWindow::OnMouseScroll(GLFWwindow* window, double xoffset, double yoffse
     }
 
     self->m_mouseScrollCallback(static_cast<float>(xoffset), static_cast<float>(yoffset));
+}
+
+void GLFWWindow::OnFrameBufferSize(GLFWwindow* window, int width, int height) {
+    auto* self = static_cast<GLFWWindow*>(glfwGetWindowUserPointer(window));
+    if (self) {
+        self->m_frameBufferWidth = width;
+        self->m_frameBufferHeight = height;
+    }
+}
+
+void GLFWWindow::OnWindowSize(GLFWwindow* window, int width, int height) {
+    auto* self = static_cast<GLFWWindow*>(glfwGetWindowUserPointer(window));
+    if (self) {
+        self->m_windowWidth = width;
+        self->m_windowHeight = height;
+    }
 }
 
 

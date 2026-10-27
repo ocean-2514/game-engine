@@ -92,8 +92,10 @@ void Scene::Render(RenderQueue& queue, float aspect) {
     Render(queue, m_mainCamera, aspect);
 }
 
-void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect) {
-    if (!IsValidComponent(camera)) return;
+void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect,
+    std::optional<Viewport> viewport) {
+    if (!IsValidComponent(camera) || !std::isfinite(aspect) ||
+        aspect <= 0.0f) return;
 
     RenderInterpolate();
     struct InterpolationGuard {
@@ -109,7 +111,7 @@ void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect) {
     LightingData lightingData{};
     CollectLightingData(lightingData);
     if (!queue.BeginView({
-        cameraData, lightingData
+        cameraData, lightingData, viewport
     })) {
         return;
     }
@@ -122,6 +124,18 @@ void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect) {
     queue.EndView();
 }
 
+void Scene::Render2D(RenderQueue& queue, const ScreenViewDesc& desc) {
+    if (!queue.BeginScreenView(desc)) {
+        return;
+    }
+
+    for (auto& object : m_objects) {
+        if (!object->IsAlive()) continue;
+        object->RenderTree2D(queue);
+    }
+    
+    queue.EndScreenView();
+}
 
 void Scene::Clear() {
     if (m_isUpdating) {

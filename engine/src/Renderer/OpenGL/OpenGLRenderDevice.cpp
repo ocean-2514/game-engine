@@ -197,6 +197,10 @@ void OpenGLRenderDevice::SetRenderState(const RenderState& state) {
     SetRasterizerState(state.rasterizer);
 }
 
+void OpenGLRenderDevice::SetViewport(const Viewport& viewport) {
+    glad_glViewport(viewport.x, viewport.y, viewport.width, viewport.height);
+}
+
 
 
 } // namespace eng

@@ -47,128 +47,64 @@ add_subdirectory(${BULLET3_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/bullet3 EXCLUDE_FRO
 set(ENGINE_SRC
     include/miniaudio/miniaudio.c
     src/Application.cpp
-    src/Application.h
     src/Engine.cpp
-    src/Engine.h
-    src/eng.h
     src/Input/InputManager.cpp
-    src/Input/InputManager.h
     src/Platform/Window.cpp
-    src/Platform/Window.h
     src/Platform/GLFW/GLFWWindow.cpp
-    src/Platform/GLFW/GLFWWindow.h
     src/Renderer/RenderDevice.cpp
-    src/Renderer/RenderDevice.h
-    src/Renderer/ShaderProgram.h
     src/Renderer/OpenGL/OpenGLRenderDevice.cpp
-    src/Renderer/OpenGL/OpenGLRenderDevice.h
     src/Renderer/OpenGL/OpenGLShaderProgram.cpp
-    src/Renderer/OpenGL/OpenGLShaderProgram.h
     src/Renderer/Material.cpp
-    src/Renderer/Material.h
     src/Renderer/Mesh.cpp
-    src/Renderer/Mesh.h
     src/Renderer/MeshFactory.cpp
-    src/Renderer/MeshFactory.h
     src/Renderer/OpenGL/OpenGLMesh.cpp
-    src/Renderer/OpenGL/OpenGLMesh.h
     src/Graphics/VertexLayout.cpp
-    src/Graphics/VertexLayout.h
-    src/Graphics/Clear.h
     src/Renderer/RenderQueue.cpp
-    src/Renderer/RenderQueue.h
     src/Scene/Scene.cpp
-    src/Scene/Scene.h
     src/Scene/GameObject.cpp
-    src/Scene/GameObject.h
     src/Scene/Component.cpp
-    src/Scene/Component.h
     src/Scene/Components/MeshComponent.cpp
-    src/Scene/Components/MeshComponent.h
+    src/Scene/Components/SpriteComponent.cpp
+    src/Scene/Components/SpriteComponent.h
     src/Scene/Components/CameraComponent.cpp
-    src/Scene/Components/CameraComponent.h
     src/Scene/Components/PlayerControllerComponent.cpp
-    src/Scene/Components/PlayerControllerComponent.h
     src/IO/FileSystem.cpp
-    src/IO/FileSystem.h
     src/Renderer/Texture.cpp
-    src/Renderer/Texture.h
     src/Renderer/OpenGL/OpenGLTexture.cpp
-    src/Renderer/OpenGL/OpenGLTexture.h
     src/Assets/MaterialAssetLoader.cpp
-    src/Assets/MaterialAssetLoader.h
-    src/Assets/MaterialDesc.h
     src/Assets/ImageLoader.cpp
-    src/Assets/ImageLoader.h
-    src/Renderer/TextureDesc.h
     src/Assets/ModelAssetLoader.cpp
-    src/Assets/ModelAssetLoader.h
     src/Renderer/Model.cpp
-    src/Renderer/Model.h
     src/Assets/TextureAssetLoader.cpp
-    src/Assets/TextureAssetLoader.h
     src/Assets/AssetManager.cpp
-    src/Assets/AssetManager.h
-    src/Common.h
     src/Renderer/RenderState.cpp
-    src/Renderer/RenderState.h
-    src/Scene/Components/LightComponent.h
     src/Scene/Components/LightComponent.cpp
     src/Scene/Components/SpotLightComponent.cpp
-    src/Scene/Components/SpotLightComponent.h
     src/Scene/Components/DirectionalLightComponent.cpp
-    src/Scene/Components/DirectionalLightComponent.h
     src/Scene/Components/PointLightComponent.cpp
-    src/Scene/Components/PointLightComponent.h
     src/Scene/Components/AnimationComponent.cpp
-    src/Scene/Components/AnimationComponent.h
-    src/Renderer/Animation.h
     src/Scene/Components/SkinnedMeshComponent.cpp
-    src/Scene/Components/SkinnedMeshComponent.h
     src/Renderer/AnimatorController.cpp
-    src/Renderer/AnimatorController.h
-    src/Renderer/AnimatorTypes.h
-    src/Physics/PhysicsTypes.h
     src/Physics/CollisionShape.cpp
-    src/Physics/CollisionShape.h
     src/Physics/PhysicsWorld.cpp
-    src/Physics/PhysicsWorld.h
     src/Physics/Bullet/BulletPhysicsWorld.cpp
-    src/Physics/Bullet/BulletPhysicsWorld.h
-    src/Physics/Bullet/BulletConversions.h
     src/Scene/Components/RigidBodyComponent.cpp
-    src/Scene/Components/RigidBodyComponent.h
     src/Assets/Scene/SceneDesc.cpp
-    src/Assets/Scene/SceneDesc.h
-    src/Assets/Scene/SceneLoadResult.h
-    src/Renderer/MeshShape.h
     src/Assets/Scene/SceneLoadContext.cpp
-    src/Assets/Scene/SceneLoadContext.h
     src/Assets/Scene/SceneTypeRegistry.cpp
-    src/Assets/Scene/SceneTypeRegistry.h
     src/Assets/Scene/ComponentCodec/SceneComponentCodecs.cpp
-    src/Assets/Scene/ComponentCodec/SceneComponentCodecs.h
     src/Assets/Scene/SceneAssetParser.cpp
-    src/Assets/Scene/SceneAssetParser.h
     src/Assets/Scene/SceneDependencyResolver.cpp
-    src/Assets/Scene/SceneDependencyResolver.h
     src/Assets/Scene/ComponentCodec/ComponentCodecCommon.cpp
-    src/Assets/Scene/ComponentCodec/ComponentCodecCommon.h
     src/Assets/Scene/ComponentCodec/CameraComponentCodec.cpp
     src/Assets/Scene/ComponentCodec/RigidBodyComponentCodec.cpp
     src/Assets/Scene/ComponentCodec/MeshComponentCodec.cpp
     src/Assets/Scene/ComponentCodec/LightComponentCodec.cpp
     src/Assets/Scene/SceneInstantiator.cpp
-    src/Assets/Scene/SceneInstantiator.h
     src/Assets/Scene/SceneAssetLoader.cpp
-    src/Assets/Scene/SceneAssetLoader.h
     src/Audio/AudioManager.cpp
-    src/Audio/AudioManager.h
-    src/Audio/AudioTypes.h
     src/Scene/Components/AudioComponent.cpp
-    src/Scene/Components/AudioComponent.h
     src/Scene/Components/AudioListenerComponent.cpp
-    src/Scene/Components/AudioListenerComponent.h
     src/Assets/Scene/ComponentCodec/AudioComponentCodec.cpp
 )
 

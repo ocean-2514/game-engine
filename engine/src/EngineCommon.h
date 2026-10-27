@@ -63,6 +63,17 @@ struct LightingLimits
     static constexpr uint32_t MaxSpotLights = 8;
 };
 
+struct Viewport {
+    int x = 0;
+    int y = 0;
+    int width = 0;
+    int height = 0;
+};
+
+enum class ScreenOrigin {
+    TopLeft, BottomLeft
+};
+
 } // namespace eng
 
 

@@ -31,7 +31,7 @@ public:
     void SetBlendState(const BlendState& state) override;
     void SetRasterizerState(const RasterizerState& state) override;
     void SetRenderState(const RenderState& state) override;
-
+    void SetViewport(const Viewport& viewport) override;
 };
 
 } // namespace eng

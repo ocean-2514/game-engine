@@ -30,9 +30,19 @@ bool Engine::Init(Application* app, int width, int height) {
 
     m_window->SetKeyCallback([this](int key, bool pressed) {
         m_inputManager.SetKeyPressed(key, pressed);
+        if (pressed) {
+            m_inputManager.SetKeyWasPressed(key);
+        } else {
+            m_inputManager.SetKeyWasReleased(key);
+        }
     });
     m_window->SetMouseButtonCallback([this](int key, bool pressed) {
         m_inputManager.SetMouseButtonPressed(key, pressed);
+        if (pressed) {
+            m_inputManager.SetMouseButtonWasPressed(key);
+        } else {
+            m_inputManager.SetMouseButtonWasReleased(key);
+        }
     });
     m_window->SetCursorPosCallback([this](float xpos, float ypos) {
         m_inputManager.RenewMousePosition({xpos, ypos});
@@ -48,12 +58,20 @@ bool Engine::Init(Application* app, int width, int height) {
         m_application.reset();
         return false;
     }
+    if (!m_renderQueue.Init(*m_renderDevice, m_fileSystem)) {
+        m_renderQueue.ShutDown();
+        m_renderDevice.reset();
+        m_window.reset();
+        m_application.reset();
+        return false;
+    }
 
     m_assetManager = std::make_unique<AssetManager>(
         m_fileSystem, *m_renderDevice, m_audioManager);
 
     if (!m_audioManager.Init(m_fileSystem)) {
         std::cout << "Engine::Init: AudioManager initialization failed\n";
+        m_renderQueue.ShutDown();
         m_application.reset();
         m_assetManager.reset();
         m_renderDevice.reset();
@@ -66,6 +84,7 @@ bool Engine::Init(Application* app, int width, int height) {
         m_application->Destroy();
         m_application.reset();
         m_audioManager.Shutdown();
+        m_renderQueue.ShutDown();
         m_assetManager.reset();
         m_renderDevice.reset();
         m_window.reset();
@@ -83,6 +102,7 @@ void Engine::Run() {
     m_lastTimePoint = std::chrono::high_resolution_clock::now();
     while (!m_window->ShouldClose() && !m_application->NeedsToBeClosed()) {
         m_window->PollEvents();
+        m_inputManager.BeginFrame();
 
         const auto currentTimePoint = std::chrono::high_resolution_clock::now();
         const float deltaTime =
@@ -91,13 +111,21 @@ void Engine::Run() {
 
         m_application->Update(deltaTime);
         m_audioManager.Update();
-        m_application->Render(m_renderQueue);
-
-        m_renderQueue.Execute(*m_renderDevice);
+        const int framebufferWidth = m_window->GetFrameBufferWidth();
+        const int framebufferHeight = m_window->GetFrameBufferHeight();
+        if (framebufferWidth > 0 && framebufferHeight > 0 &&
+            m_window->GetWindowWidth() > 0 &&
+            m_window->GetWindowHeight() > 0) {
+            m_application->Render(m_renderQueue);
+            m_renderQueue.Execute(*m_renderDevice,
+                {0, 0, framebufferWidth, framebufferHeight});
+        } else {
+            m_renderQueue.Clear();
+        }
 
         m_window->SwapBuffers();
 
-        m_inputManager.RenewDataOnFrameEnd();
+        m_inputManager.ClearState();
     }
 }
 
@@ -107,6 +135,7 @@ void Engine::Destroy() {
         m_application.reset();
     }
     m_audioManager.Shutdown();
+    m_renderQueue.ShutDown();
 
     // GPU resources owned by the application and device must die while the
     // window's OpenGL context is still alive.

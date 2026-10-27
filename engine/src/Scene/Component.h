@@ -47,6 +47,7 @@ protected:
     virtual void OnUpdate(float deltaTime) {}
     virtual void OnFixedUpdate(float fixedDeltaTime) {}
     virtual void OnRender(RenderQueue& queue) {}
+    virtual void OnRender2D(RenderQueue& queue) {}
     virtual void OnAttach(Scene& scene) {}
     virtual void OnDetach(Scene& scene) {}
     

@@ -25,7 +25,8 @@ void ThirdPerspectiveController::OnUpdate(float deltaTime) {
         return;
     }
 
-    auto& inputManager = eng::Engine::GetInstance().GetInputManager();
+    auto& engine = eng::Engine::GetInstance();
+    auto& inputManager = engine.GetInputManager();
 
     const glm::vec2 delta =
         inputManager.GetMousePositionDelta() * m_sensitivity;

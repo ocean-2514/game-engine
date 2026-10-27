@@ -23,6 +23,7 @@
 #include "Scene/GameObject.h"
 #include "Scene/Component.h"
 #include "Scene/Components/MeshComponent.h"
+#include "Scene/Components/SpriteComponent.h"
 #include "Scene/Components/CameraComponent.h"
 #include "Scene/Components/PlayerControllerComponent.h"
 #include "Scene/Components/DirectionalLightComponent.h"

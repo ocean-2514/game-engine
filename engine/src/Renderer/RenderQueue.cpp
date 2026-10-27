@@ -5,14 +5,47 @@
 #include "Renderer/ShaderProgram.h"
 #include "Renderer/RenderDevice.h"
 #include "Renderer/Animation.h"
+#include "Renderer/Texture.h"
+#include "Renderer/MeshFactory.h"
+#include "IO/FileSystem.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <utility>
+#include <glm/gtc/type_ptr.hpp>
 
 namespace eng {
 
 namespace {
+
+bool IsValidViewport(const Viewport& viewport) {
+    return viewport.x >= 0 && viewport.y >= 0 &&
+        viewport.width > 0 && viewport.height > 0;
+}
+
+bool FitsFramebuffer(const Viewport& viewport, const Viewport& framebuffer) {
+    return IsValidViewport(viewport) &&
+        static_cast<int64_t>(viewport.x) + viewport.width <= framebuffer.width &&
+        static_cast<int64_t>(viewport.y) + viewport.height <= framebuffer.height;
+}
+
+bool IsFinite(const glm::mat4& matrix) {
+    const float* values = glm::value_ptr(matrix);
+    for (int i = 0; i < 16; ++i) {
+        if (!std::isfinite(values[i])) return false;
+    }
+    return true;
+}
+
+bool IsFinite(const glm::vec2& value) {
+    return std::isfinite(value.x) && std::isfinite(value.y);
+}
+
+bool IsFinite(const glm::vec4& value) {
+    return std::isfinite(value.x) && std::isfinite(value.y) &&
+        std::isfinite(value.z) && std::isfinite(value.w);
+}
 
 float ViewSpaceDepth(
     const glm::mat4& model,
@@ -98,20 +131,47 @@ RenderCommand::RenderCommand(
       material(std::move(materialValue)),
       modelMatrix(modelMatrix) {}
 
+bool RenderQueue::Init(RenderDevice& device, FileSystem& fileSystem) {
+    m_quadMesh = MeshFactory::CreatePlane(device, 1.0f, 1.0f);
+    const auto vsCode = fileSystem.LoadAssetTextFile("shader/default/screen_quad_vs.glsl");
+    const auto fsCode = fileSystem.LoadAssetTextFile("shader/default/screen_quad_fs.glsl");
+    m_defaultScreenShader = device.CreateShaderProgram(vsCode, fsCode);
+
+    m_screenRenderState.depth.depthTestEnable = false;
+    m_screenRenderState.depth.depthWriteEnable = false;
+    m_screenRenderState.blend.blendEnable = true;
+    m_screenRenderState.rasterizer.cullMode = CullMode::None;
+
+    return m_quadMesh != nullptr && m_quadMesh->IsValid()
+        && m_defaultScreenShader != nullptr 
+        && m_defaultScreenShader->IsValid();
+}
+
 bool RenderQueue::IsValid(const RenderCommand& command) {
     return command.mesh && command.mesh->IsValid() &&
            command.material && command.material->IsValid();
 }
 
+bool RenderQueue::IsValid(const ScreenQuadCommand& command) {
+    return command.texture && command.texture->IsValid() &&
+        (!command.shader || command.shader->IsValid()) &&
+        IsFinite(command.modelMatrix) && IsFinite(command.lowerLeftUV) &&
+        IsFinite(command.upperRightUV) && IsFinite(command.color);
+}
+
 bool RenderQueue::BeginView(const RenderViewData& viewData) {
-    if (m_currentView != nullptr) {
+    if (m_currentRenderView != nullptr || m_currentScreenQuadView != nullptr) {
         std::cout << "RenderQueue::BeginView: a render view is already open\n";
+        return false;
+    }
+    if (viewData.viewport && !IsValidViewport(*viewData.viewport)) {
+        std::cout << "RenderQueue::BeginView: invalid viewport\n";
         return false;
     }
 
     auto view = std::make_unique<RenderView>(RenderView{viewData});
-    m_currentView = view.get();
-    m_views.push_back(std::move(view));
+    m_currentRenderView = view.get();
+    m_renderViews.push_back(std::move(view));
     return true;
 }
 
@@ -120,17 +180,56 @@ void RenderQueue::Submit(RenderCommand command) {
         std::cout << "RenderQueue::Submit: command requires a valid Mesh and Material\n";
         return;
     }
-    if (m_currentView == nullptr) {
+    if (m_currentRenderView == nullptr) {
         std::cout << "RenderQueue::Submit: render view not set\n";
         return;
     }
 
     const uint64_t revision = command.material->GetRevision();
-    m_currentView->commands.push_back({std::move(command), revision});
+    m_currentRenderView->commands.push_back({std::move(command), revision});
 }
 
 void RenderQueue::EndView() {
-    m_currentView = nullptr;
+    m_currentRenderView = nullptr;
+}
+
+bool RenderQueue::BeginScreenView(const ScreenViewDesc& desc) {
+    if (m_currentScreenQuadView != nullptr || m_currentRenderView != nullptr) {
+        std::cout << "RenderQueue::BeginScreenView: "
+            "a screen quad view is already open\n";
+        return false;
+    }
+
+    if (!std::isfinite(desc.logicalWidth) || desc.logicalWidth <= 0.0f ||
+        !std::isfinite(desc.logicalHeight) || desc.logicalHeight <= 0.0f ||
+        !IsValidViewport(desc.viewport) ||
+        (desc.origin != ScreenOrigin::TopLeft &&
+         desc.origin != ScreenOrigin::BottomLeft)) {
+        std::cout << "RenderQueue::BeginScreenView: invalid screen view\n";
+        return false;
+    }
+
+    auto view = std::make_unique<ScreenQuadView>(ScreenQuadView{desc});
+    m_currentScreenQuadView = view.get();
+    m_screenQuadViews.push_back(std::move(view));
+    return true;
+}
+
+void RenderQueue::SubmitScreenQuad(ScreenQuadCommand command) {
+    if (!IsValid(command)) {
+        std::cout << "RenderQueue::SubmitScreenQuad: invalid texture, shader, or draw data\n";
+        return;
+    }
+    if (m_currentScreenQuadView == nullptr) {
+        std::cout << "RenderQueue::Submit: screen quad view not set\n";
+        return;
+    }
+
+    m_currentScreenQuadView->commands.push_back(std::move(command));
+}
+
+void RenderQueue::EndScreenView() {
+    m_currentScreenQuadView = nullptr;
 }
 
 RenderQueue::ShaderState& RenderQueue::GetShaderState(
@@ -145,7 +244,21 @@ RenderQueue::ShaderState& RenderQueue::GetShaderState(
     return m_shaderStates.back();
 }
 
-void RenderQueue::Execute(RenderDevice& device) {
+void RenderQueue::Execute(RenderDevice& device,
+    const Viewport& framebufferViewport) {
+    if (!IsValidViewport(framebufferViewport)) {
+        Clear();
+        return;
+    }
+    // World views are always executed before screen views in this version.
+    ExecuteRender(device, framebufferViewport);
+    ExecuteScreenQuad(device, framebufferViewport);
+
+    Clear();
+}
+
+void RenderQueue::ExecuteRender(RenderDevice& device,
+    const Viewport& framebufferViewport) {
     m_shaderStates.erase(
         std::remove_if(
             m_shaderStates.begin(),
@@ -153,12 +266,18 @@ void RenderQueue::Execute(RenderDevice& device) {
             [](const ShaderState& state) { return state.shader.expired(); }),
         m_shaderStates.end());
 
-    for (const auto& view : m_views) {
+    for (const auto& view : m_renderViews) {
+        const Viewport viewport = view->data.viewport.value_or(framebufferViewport);
+        if (!FitsFramebuffer(viewport, framebufferViewport)) {
+            std::cout << "RenderQueue::ExecuteRender: invalid viewport\n";
+            continue;
+        }
+        device.SetViewport(viewport);
         const auto& camera = view->data.camera;
         const auto& lighting = view->data.lighting;
 
         std::stable_sort(view->commands.begin(), view->commands.end(),
-            [&camera](const QueuedCommand& queued1, const QueuedCommand& queued2) {
+            [&camera](const QueuedRenderCommand& queued1, const QueuedRenderCommand& queued2) {
                 const RenderCommand& cmd1 = queued1.command;
                 const RenderCommand& cmd2 = queued2.command;
                 if (cmd1.phase != cmd2.phase)
@@ -257,8 +376,62 @@ void RenderQueue::Execute(RenderDevice& device) {
             command.mesh->Draw();
         }
     }
+}
 
-    Clear();
+void RenderQueue::ExecuteScreenQuad(RenderDevice& device,
+    const Viewport& framebufferViewport) {
+    if (m_screenQuadViews.empty()) return;
+    if (!m_quadMesh || !m_quadMesh->IsValid() ||
+        !m_defaultScreenShader || !m_defaultScreenShader->IsValid()) {
+        InvalidateStateCache();
+        return;
+    }
+
+    for (const auto& view : m_screenQuadViews) {
+        const auto& desc = view->desc;
+        if (!FitsFramebuffer(desc.viewport, framebufferViewport)) {
+            std::cout << "RenderQueue::ExecuteScreenQuad: invalid viewport\n";
+            continue;
+        }
+        ApplyRenderState(m_screenRenderState, device);
+        glm::mat4 projection = desc.origin == ScreenOrigin::TopLeft ?
+            glm::ortho(0.0f, desc.logicalWidth, desc.logicalHeight, 0.0f) :
+            glm::ortho(0.0f, desc.logicalWidth, 0.0f, desc.logicalHeight);
+
+        device.SetViewport(desc.viewport);
+
+        auto& commands = view->commands;
+        std::stable_sort(commands.begin(), commands.end(), 
+            [](const ScreenQuadCommand& cmd1, const ScreenQuadCommand& cmd2) {
+                return cmd1.renderOrder < cmd2.renderOrder;
+            });
+
+        for (const auto& cmd : commands) {
+            if (!IsValid(cmd)) continue;
+            std::shared_ptr<ShaderProgram> shader = 
+                !cmd.shader ? m_defaultScreenShader : cmd.shader;
+            
+            if (m_currentShader.lock() != shader) {
+                m_currentShader = shader;
+                shader->Bind();
+            }
+            m_currentTextureMaterial.reset();
+
+            shader->SetMat4f("uModel", cmd.modelMatrix);
+            shader->SetVec4("uColor", cmd.color);
+            shader->SetMat4f("uProjection", projection);
+            shader->SetVec2("uLowerLeftUV", cmd.lowerLeftUV);
+            shader->SetVec2("uUpperRightUV", cmd.upperRightUV);
+            
+            shader->SetTexture("uTexture", *cmd.texture, 0);
+            
+            m_quadMesh->Bind();
+            m_quadMesh->Draw();
+        }
+    }
+    // Screen shaders and textures may overwrite uniforms/bindings cached by
+    // the world pass, including when a custom shader is shared there.
+    InvalidateStateCache();
 }
 
 void RenderQueue::ApplyRenderState(const RenderState& state,
@@ -284,8 +457,17 @@ void RenderQueue::ApplyRenderState(const RenderState& state,
 }
 
 void RenderQueue::Clear() {
-    m_currentView = nullptr;
-    m_views.clear();
+    m_currentRenderView = nullptr;
+    m_currentScreenQuadView = nullptr;
+    m_renderViews.clear();
+    m_screenQuadViews.clear();
+}
+
+void RenderQueue::ShutDown() {
+    Clear();
+    InvalidateStateCache();
+    m_quadMesh.reset();
+    m_defaultScreenShader.reset();
 }
 
 void RenderQueue::InvalidateStateCache() {

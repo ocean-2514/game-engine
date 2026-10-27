@@ -1,6 +1,7 @@
 #include "Scene/GameObject.h"
 
 #include <utility>
+#include <cmath>
 #include <glm/gtx/matrix_decompose.hpp>
 #include <iostream>
 
@@ -119,6 +120,48 @@ void GameObject::RenderTree(RenderQueue& queue) {
     }
 }
 
+void GameObject::RenderTree2D(RenderQueue& queue) {
+    if (!m_isAlive) {
+        return;
+    }
+
+    m_isTraversingComponents = true;
+    {
+        struct TraversalGuard {
+            bool& traversing;
+            ~TraversalGuard() { traversing = false; }
+        } guard{m_isTraversingComponents};
+
+        for (auto it = m_components.begin(); it != m_components.end();) {
+            if ((*it)->IsAlive()) {
+                (*it)->OnRender2D(queue);
+            }
+
+            if ((*it)->IsAlive()) {
+                ++it;
+            } else {
+                DetachComponent(**it);
+                it = m_components.erase(it);
+            }
+
+            if (!m_isAlive) {
+                break;
+            }
+        }
+    }
+
+    if (!m_isAlive) {
+        return;
+    }
+    FlushPendingCommands();
+
+    for (auto& child : m_children) {
+        if (child->m_isAlive) {
+            child->RenderTree2D(queue);
+        }
+    }
+}
+
 const std::string& GameObject::GetName() const {
     return m_name;
 }
@@ -164,8 +207,16 @@ const glm::vec3& GameObject::GetPosition() const {
     return m_position;
 }
 
+glm::vec2 GameObject::GetPosition2D() const {
+    return m_position;
+}
+
 void GameObject::SetPosition(const glm::vec3& position) {
     m_position = position;
+}
+
+void GameObject::SetPosition2D(const glm::vec2& position) {
+    m_position = glm::vec3{position, 0.0f};
 }
 
 void GameObject::SetWorldPosition(const glm::vec3& worldPosition) {
@@ -180,8 +231,19 @@ const glm::quat& GameObject::GetRotation() const {
     return m_rotation;
 }
 
+float GameObject::GetRotation2D() const {
+    const glm::vec3 right = m_rotation * glm::vec3{1.0f, 0.0f, 0.0f};
+    if (right.x * right.x + right.y * right.y < 1e-12f) return 0.0f;
+    return glm::degrees(std::atan2(right.y, right.x));
+}
+
 void GameObject::SetRotation(const glm::quat& rotation) {
     m_rotation = glm::normalize(rotation);
+}
+
+void GameObject::SetRotation2D(float angle) {
+    m_rotation = glm::angleAxis(glm::radians(angle), 
+        glm::vec3(0.0f, 0.0f, 1.0f));
 }
 
 void GameObject::SetWorldRotation(const glm::quat& worldRotation) {
@@ -201,8 +263,16 @@ const glm::vec3& GameObject::GetScale() const {
     return m_scale;
 }
 
+glm::vec2 GameObject::GetScale2D() const {
+    return m_scale;
+}
+
 void GameObject::SetScale(const glm::vec3& scale) {
     m_scale = scale;
+}
+
+void GameObject::SetScale2D(const glm::vec2& scale) {
+    m_scale = glm::vec3{scale, 1.0f};
 }
 
 void GameObject::SetLocalTransform(const glm::mat4& transform) {
@@ -241,11 +311,37 @@ glm::mat4 GameObject::GetLocalTransform() const {
     return model;
 }
 
+glm::mat4 GameObject::GetLocalTransform2D() const {
+    glm::mat4 model{1.0f};
+    model[3][0] = m_position.x;
+    model[3][1] = m_position.y;
+    float rotation = glm::radians(GetRotation2D());
+    float s = std::sin(rotation);
+    float c = std::cos(rotation);
+    glm::mat4 rot{1.0f};
+    rot[0][0] = c;
+    rot[1][0] = -s;
+    rot[0][1] = s;
+    rot[1][1] = c;
+    model = model * rot;
+    model[0] = model[0] * m_scale[0];
+    model[1] = model[1] * m_scale[1];
+    return model;
+}
+
 glm::mat4 GameObject::GetWorldTransform() const {
     if (m_parent != nullptr) {
         return m_parent->GetWorldTransform() * GetLocalTransform();
     } else {
         return GetLocalTransform();
+    }
+}
+
+glm::mat4 GameObject::GetWorldTransform2D() const {
+    if (m_parent != nullptr) {
+        return m_parent->GetWorldTransform2D() * GetLocalTransform2D();
+    } else {
+        return GetLocalTransform2D();
     }
 }
 
