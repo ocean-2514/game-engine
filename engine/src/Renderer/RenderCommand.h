@@ -2,6 +2,7 @@
 #define O_RENDER_COMMAND
 
 #include "EngineCommon.h"
+#include "Renderer/RenderState.h"
 
 #include <memory>
 #include <optional>
@@ -53,6 +54,13 @@ struct ScreenViewDesc {
     float logicalHeight = 0.0f;
     ScreenOrigin origin = ScreenOrigin::TopLeft;
     Viewport viewport;
+
+    bool operator==(const ScreenViewDesc& other) const {
+        return logicalWidth == other.logicalWidth
+            && logicalHeight == other.logicalHeight
+            && origin == other.origin
+            && viewport == other.viewport;
+    }
 };
 
 } // namespace eng

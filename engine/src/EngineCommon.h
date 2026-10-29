@@ -68,10 +68,23 @@ struct Viewport {
     int y = 0;
     int width = 0;
     int height = 0;
+
+    bool operator==(const Viewport& other) const {
+        return x == other.x && y == other.y 
+            && width == other.width && height == other.height;
+    }
 };
 
 enum class ScreenOrigin {
     TopLeft, BottomLeft
+};
+
+struct WindowMetrics {
+    float logicalWidth  = 0.0f;
+    float logicalHeight = 0.0f;
+
+    int framebufferWidth  = 0;
+    int framebufferHeight = 0;
 };
 
 } // namespace eng

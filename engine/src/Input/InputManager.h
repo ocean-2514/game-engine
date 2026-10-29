@@ -2,6 +2,7 @@
 #define O_INPUT_MANAGER
 
 #include "Input/Key.h"
+#include "Input/InputEvent.h"
 
 #include <cstdint>
 #include <array>
@@ -9,22 +10,6 @@
 #include <glm/glm.hpp>
 
 namespace eng {
-
-enum class InputEventType : uint8_t {
-    KeyPressed, KeyReleased,
-    MouseButtonPressed, MouseButtonReleased,
-    MouseMoved,
-    Scroll
-};
-
-struct InputEvent {
-    InputEventType type = InputEventType::MouseMoved;
-    // mouse button / key
-    Key key = Key::Unknown;
-    glm::vec2 mouse{0.0f};
-    glm::vec2 scrollOffset{0.0f};
-    uint8_t mods = 0;
-};
     
 class InputManager
 {

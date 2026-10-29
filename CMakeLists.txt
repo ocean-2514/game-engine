@@ -29,6 +29,14 @@ target_include_directories(my_engine PUBLIC
 )
 target_link_libraries(my_engine PUBLIC engine)
 
+option(ENGINE_BUILD_TESTS "Build engine logic regression tests" OFF)
+if(ENGINE_BUILD_TESTS)
+    enable_testing()
+    add_executable(ui_context_tests engine/test/UIContextTests.cpp)
+    target_link_libraries(ui_context_tests PRIVATE engine)
+    add_test(NAME ui_context_tests COMMAND ui_context_tests)
+endif()
+
 #copy dll
 set(DLL_FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/bin/glfw3.dll

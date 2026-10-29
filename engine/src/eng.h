@@ -37,5 +37,7 @@
 #include "Audio/AudioManager.h"
 #include "Physics/PhysicsWorld.h"
 #include "Physics/CollisionShape.h"
+#include "UI/UIContext.h"
+#include "UI/UIElement.h"
 
 #endif

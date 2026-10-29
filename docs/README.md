@@ -15,3 +15,4 @@
 | [009](009-audio-architecture.md) | miniaudio、声音组件与监听者 |
 | [010](010-sprite-ui-roadmap.md) | Sprite/UI 前置缺口与分阶段实施路线 |
 | [011](011-2d-rendering-sprite-ui.md) | 2D 视图初版审查、shader/material 边界与 Sprite/UI 实施设计 |
+| [012](012-ui-foundation.md) | UIContext/UIElement 实现、句柄/布局/命中/捕获与应用接入契约 |

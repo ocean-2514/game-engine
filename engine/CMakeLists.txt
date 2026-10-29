@@ -106,6 +106,9 @@ set(ENGINE_SRC
     src/Scene/Components/AudioComponent.cpp
     src/Scene/Components/AudioListenerComponent.cpp
     src/Assets/Scene/ComponentCodec/AudioComponentCodec.cpp
+    src/UI/UIElement.cpp
+    src/UI/UIContext.cpp
+    src/UI/UIImage.cpp
 )
 
 add_library(engine STATIC ${ENGINE_SRC})
