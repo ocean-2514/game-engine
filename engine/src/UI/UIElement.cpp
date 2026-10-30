@@ -71,8 +71,20 @@ int32_t UIElement::GetRenderOrder() const {
     return m_renderOrder;
 }
 
+glm::mat4 UIElement::GetModelMatrix() const {
+    glm::mat4 mat{1.0f};
+    mat[0][0] = m_arrangedRect.width;
+    mat[1][1] = m_arrangedRect.height;
+    mat[3][0] = m_arrangedRect.x + m_arrangedRect.width * 0.5f;
+    mat[3][1] = m_arrangedRect.y + m_arrangedRect.height * 0.5f;
+    return mat;
+}
 
-
-
+bool UIElement::InsideRect(const glm::vec2& viewPosition) const {
+    return viewPosition.x >= m_arrangedRect.x
+        && viewPosition.x < m_arrangedRect.x + m_arrangedRect.width
+        && viewPosition.y >= m_arrangedRect.y
+        && viewPosition.y < m_arrangedRect.y + m_arrangedRect.height;
+}
     
 } // namespace eng

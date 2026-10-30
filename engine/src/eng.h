@@ -39,5 +39,7 @@
 #include "Physics/CollisionShape.h"
 #include "UI/UIContext.h"
 #include "UI/UIElement.h"
+#include "UI/UIImage.h"
+#include "UI/UIButton.h"
 
 #endif

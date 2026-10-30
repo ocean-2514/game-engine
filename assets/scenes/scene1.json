@@ -57,14 +57,6 @@
               "isTrigger": false
             }
           ]
-        },
-        {
-          "type": "engine.AudioComponent",
-          "asset": "audios/wind.mp3",
-          "spatial": true,
-          "loop": true,
-          "playOnAttach": true,
-          "volume": 1.0
         }
       ]
     },

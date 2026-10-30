@@ -22,6 +22,9 @@ bool Contains(const UIRect& rect, glm::vec2 point) {
 }
 }
 
+UIContext::UIContext(const ScreenViewDesc& desc)
+    : m_screenView(desc) {}
+
 UIElementHandle UIContext::AddRoot(std::unique_ptr<UIElement> root) {
     if (!root) return {};
     auto handle = AcquireHandle();
@@ -166,6 +169,7 @@ void UIContext::Dispatch(UIElementHandle handle, UIPointerEventType type,
     if (!element) return;
     UIPointerEvent event;
     event.type = type;
+    event.insideView = m_pointerInside;
     event.button = button;
     event.mods = mods;
     event.scrollOffset = scroll;

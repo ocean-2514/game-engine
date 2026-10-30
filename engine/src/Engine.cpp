@@ -58,13 +58,6 @@ bool Engine::Init(Application* app, int width, int height) {
         m_application.reset();
         return false;
     }
-    if (!m_renderQueue.Init(*m_renderDevice, m_fileSystem)) {
-        m_renderQueue.ShutDown();
-        m_renderDevice.reset();
-        m_window.reset();
-        m_application.reset();
-        return false;
-    }
 
     m_assetManager = std::make_unique<AssetManager>(
         m_fileSystem, *m_renderDevice, m_audioManager);
@@ -74,8 +67,16 @@ bool Engine::Init(Application* app, int width, int height) {
         m_renderQueue.ShutDown();
         m_application.reset();
         m_assetManager.reset();
+        m_window.reset();
+        return false;
+    }
+
+    if (!m_renderQueue.Init(*m_renderDevice, m_fileSystem, *m_assetManager)) {
+        m_renderQueue.ShutDown();
         m_renderDevice.reset();
         m_window.reset();
+        m_application.reset();
+        m_assetManager.reset();
         return false;
     }
 

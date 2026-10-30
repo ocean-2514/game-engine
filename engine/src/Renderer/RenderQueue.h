@@ -16,10 +16,12 @@ class ShaderProgram;
 class RenderDevice;
 class Mesh;
 class FileSystem;
+class AssetManager;
 
 class RenderQueue {
 public:
-    bool Init(RenderDevice& device, FileSystem& fileSystem);
+    bool Init(RenderDevice& device, 
+        FileSystem& fileSystem, AssetManager& assetManager);
 
     bool BeginView(const RenderViewData& data);
     void Submit(RenderCommand command);
@@ -81,6 +83,7 @@ private:
     ScreenQuadView* m_currentScreenQuadView = nullptr;
 
     std::shared_ptr<ShaderProgram> m_defaultScreenShader;
+    std::shared_ptr<Texture> m_defaultTexture;
     std::shared_ptr<Mesh> m_quadMesh;
 };
 

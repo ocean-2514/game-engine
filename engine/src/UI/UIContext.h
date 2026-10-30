@@ -18,6 +18,7 @@ class RenderQueue;
 class UIContext {
 public:
     UIContext() = default;
+    explicit UIContext(const ScreenViewDesc& view);
     UIContext(const UIContext&) = delete;
     UIContext& operator=(const UIContext&) = delete;
     UIContext(UIContext&&) = delete;
@@ -97,7 +98,9 @@ private:
     std::vector<uint32_t> m_freeSlots;
     std::vector<UIElementHandle> m_roots;
 
-    ScreenViewDesc m_screenView;
+    ScreenViewDesc m_screenView{
+        1920.0f, 1080.0f, ScreenOrigin::TopLeft,
+        {0, 0, 1920, 1080}};
     bool m_layoutDirty = true;
 
     bool m_isTraversing = false;

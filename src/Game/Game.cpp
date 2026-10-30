@@ -22,15 +22,6 @@ bool Game::Init() {
     }
     scene = std::move(result.Value());
 
-    auto texture = assetManager.LoadTexture({.path = "texture/awesomeface.png"});
-    if (!texture) return false;
-    auto* obj = scene->CreateObject("testObj");
-    if (!obj || !obj->AddComponent<eng::SpriteComponent>(std::move(texture)))
-        return false;
-    glm::vec2 size{1920.f, 1080.f};
-    obj->SetScale2D(size);
-    obj->SetPosition2D(size / 2.f);
-
     const auto model = ModelFactory::CreatePlayerModel();
     eng::GameObject* modelObj = scene->InstantiateModel(model);
     if (!modelObj) return false;
@@ -57,6 +48,20 @@ bool Game::Init() {
         animationComp,
         rigidBodyComp
     );
+
+    // ui
+    auto texture = assetManager.LoadTexture({.path = "texture/awesomeface.png"});
+    uiContext = std::make_unique<eng::UIContext>();
+    auto image = std::make_unique<eng::UIImage>(texture);
+    image->SetVisibility(eng::UIVisibility::Collapsed);
+    image->SetRect({100.0f, 100.0f, 100.0f, 100.0f});
+    auto button = std::make_unique<eng::UIButton>();
+    button->SetBackground(image.get());
+    button->AddClickListener([]{
+        std::cout << "clicked" << std::endl;
+    });
+    uiContext->AddRoot(std::move(image));
+    uiContext->AddRoot(std::move(button));
     
     return true;
 }
@@ -72,10 +77,19 @@ void Game::Update(float deltaTime) {
     if (input.IsKeyPressed(eng::Key::Escape)) {
         eng::Engine::GetInstance().GetApplication()->SetNeedsToBeClosed(true);
     }
-    // if (input.WasMouseButtonPressed(eng::Key::MouseLeft)) {
-    //     std::cout << "left mouse button pressed" << std::endl;
-    // }
 
+    auto* window = eng::Engine::GetInstance().GetWindow();
+    uiContext->SetView({
+        static_cast<float>(window->GetWindowWidth()),
+        static_cast<float>(window->GetWindowHeight()), eng::ScreenOrigin::TopLeft,
+        {0, 0, window->GetFrameBufferWidth(), window->GetFrameBufferHeight()}
+    });
+    uiContext->ProcessInput(input.GetEvents(), 
+        {
+            static_cast<float>(window->GetWindowWidth()), 
+            static_cast<float>(window->GetWindowHeight()), 
+            window->GetFrameBufferWidth(), window->GetFrameBufferHeight()
+        });
     scene->Update(deltaTime);
 
     // const auto& collisionEvents = scene->GetCollisionEvents();
@@ -107,8 +121,8 @@ void Game::Render(eng::RenderQueue& queue) {
     int framebufferHeight = window->GetFrameBufferHeight();
     if (width <= 0 || height <= 0 ||
         framebufferWidth <= 0 || framebufferHeight <= 0) return;
-    // std::cout << width << ' ' << height << '\n';
     float aspect = static_cast<float>(width) / static_cast<float>(height);
+
     scene->Render(queue, aspect);
     scene->Render2D(queue, eng::ScreenViewDesc{
         .logicalWidth = static_cast<float>(width), 
@@ -116,6 +130,7 @@ void Game::Render(eng::RenderQueue& queue) {
         .viewport = {framebufferWidth / 4, framebufferHeight / 4,
             framebufferWidth / 2, framebufferHeight / 2}
     });
+    uiContext->Submit(queue); // UI is the final screen-space overlay.
 }
 
 void Game::Destroy() {}

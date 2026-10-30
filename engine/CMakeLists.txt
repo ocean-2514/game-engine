@@ -109,6 +109,7 @@ set(ENGINE_SRC
     src/UI/UIElement.cpp
     src/UI/UIContext.cpp
     src/UI/UIImage.cpp
+    src/UI/UIButton.cpp
 )
 
 add_library(engine STATIC ${ENGINE_SRC})

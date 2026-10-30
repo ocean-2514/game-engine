@@ -53,6 +53,7 @@ enum class UIPointerEventType : uint8_t {
 };
 
 struct UIPointerEvent {
+    bool insideView = true; // Captured events may be outside the UI viewport.
     glm::vec2 scrollOffset{0.0f};
     UIPointerEventType type = UIPointerEventType::Move;
     Key button = Key::Unknown;      // Down/Up 有效：GLFW_MOUSE_BUTTON_*，初版只用左键

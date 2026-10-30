@@ -1,4 +1,7 @@
 #include "UI/UIContext.h"
+#include "UI/UIButton.h"
+#include "Renderer/Texture.h"
+#include <limits>
 #include "Renderer/RenderQueue.h"
 #include <cmath>
 #include <functional>
@@ -46,7 +49,7 @@ int Count(const Probe& probe, UIPointerEventType type) {
 }
 
 void LayoutAndHandles() {
-    UIContext context;
+    UIContext context{};
     context.SetView(View());
     auto root = context.AddRoot(Element({10, 20, 100, 50}));
     auto child = context.AttachElement(Element({3, 4, 10, 8}), root);
@@ -80,7 +83,7 @@ void LayoutAndHandles() {
 }
 
 void InputAndCapture() {
-    UIContext context;
+    UIContext context{};
     context.SetView(View());
     auto first = context.AddRoot(Element({0, 0, 30, 30}));
     auto second = context.AddRoot(Element({0, 0, 30, 30}));
@@ -111,7 +114,7 @@ void InputAndCapture() {
 }
 
 void SubViewportAndVisibility() {
-    UIContext context;
+    UIContext context{};
     context.SetView({100, 50, ScreenOrigin::TopLeft, {100, 50, 200, 100}});
     auto root = context.AddRoot(Element({0, 0, 100, 50}));
     auto* probe = static_cast<Probe*>(context.Resolve(root));
@@ -134,7 +137,7 @@ void SubViewportAndVisibility() {
 }
 
 void DeferredMutations() {
-    UIContext context;
+    UIContext context{};
     context.SetView(View());
     auto root = context.AddRoot(Element({0, 0, 100, 50}));
     auto* probe = static_cast<Probe*>(context.Resolve(root));
@@ -176,8 +179,117 @@ void DeferredMutations() {
     Check(!context.Resolve(reused), "visibility callback can remove itself safely");
 }
 
+struct ImageProbe : UIImage {
+    UIDrawList Draw() const { UIDrawList list; OnSubmit(list); return list; }
+};
+struct ButtonProbe : UIButton {
+    UIDrawList Draw() const { UIDrawList list; OnSubmit(list); return list; }
+    void Send(const UIPointerEvent& event) { OnPointerEvent(event); }
+};
+struct TestTexture : Texture {
+    bool IsValid() const override { return true; }
+};
+
+void Images() {
+    UIContext context(View());
+    auto parent = context.AddRoot(Element({30, 20, 100, 60}));
+    auto image = std::make_unique<ImageProbe>();
+    auto* probe = image.get();
+    image->SetRect({5, 8, 20, 10});
+    image->SetTint({0.2f, 0.4f, 0.6f, 0.8f});
+    const auto tint = image->GetTint();
+    Check(tint.g == 0.4f, "valid image tint accepted");
+    auto invalid = tint;
+    invalid.g = std::numeric_limits<float>::quiet_NaN();
+    image->SetTint(invalid);
+    Check(image->GetTint() == tint, "invalid tint rejected");
+    image->SetUV({0.1f, 0.2f}, {0.7f, 0.8f});
+    context.AttachElement(std::move(image), parent);
+    context.Layout();
+    const auto draw = probe->Draw();
+    Check(draw.size() == 1 && draw[0].modelMatrix[3][0] == 45 &&
+        draw[0].modelMatrix[3][1] == 33, "image uses arranged rectangle");
+    Check(draw[0].color == tint && draw[0].lowerLeftUV == glm::vec2(0.1f, 0.2f),
+        "image forwards tint and UV");
+    probe->SetRect({0, 0, 0, 10});
+    context.Layout();
+    Check(probe->Draw().empty(), "zero sized image skipped");
+}
+
+void Buttons() {
+    UIContext context(View());
+    auto parent = context.AddRoot(Element({30, 20, 100, 60}));
+    auto button = std::make_unique<ButtonProbe>();
+    auto* probe = button.get();
+    button->SetRect({5, 8, 20, 10});
+    const auto texture = std::make_shared<TestTexture>();
+    {
+        UIImage background(texture);
+        background.SetTint({0.3f, 0.4f, 0.5f, 0.6f});
+        background.SetUV({0.1f, 0.2f}, {0.8f, 0.9f});
+        button->SetBackground(&background);
+    }
+    auto handle = context.AttachElement(std::move(button), parent);
+    context.Layout();
+    auto draw = probe->Draw();
+    Check(draw.size() == 1 && draw[0].texture == texture && draw[0].color.a == 0.6f,
+        "background snapshot survives source destruction and preserves tint");
+    int clicks = 0;
+    probe->AddClickListener({});
+    probe->AddClickListener([&] { ++clicks; });
+    auto click = [&](float upX, float upY) {
+        context.ProcessInput({Event(InputEventType::MouseButtonPressed, 40, 30),
+            Event(InputEventType::MouseButtonReleased, upX, upY)}, Metrics());
+    };
+    click(40, 30);
+    Check(clicks == 1, "nested button click");
+    click(40, 38);
+    Check(clicks == 1, "bottom edge excluded consistently");
+    context.ProcessInput({Event(InputEventType::MouseButtonPressed, 40, 30)}, Metrics());
+    probe->SetEnabled(false);
+    probe->SetEnabled(true);
+    context.ProcessInput({Event(InputEventType::MouseButtonReleased, 40, 30)}, Metrics());
+    Check(clicks == 1, "cancelled press never clicks after re-enable");
+    context.ProcessInput({Event(InputEventType::MouseButtonPressed, 40, 30),
+        Event(InputEventType::MouseMoved, 150, 90),
+        Event(InputEventType::MouseButtonReleased, 40, 30)}, Metrics());
+    Check(clicks == 2, "capture survives leave and re-entry");
+    UIPointerEvent up;
+    up.type = UIPointerEventType::Up;
+    up.button = Key::MouseLeft;
+    up.viewPosition = {40, 30};
+    probe->Send(up);
+    Check(clicks == 2, "up without down does not click");
+    probe->SetRect({150, 8, 40, 10}); // Arranged x=180: partly outside the view.
+    context.ProcessInput({Event(InputEventType::MouseButtonPressed, 190, 30),
+        Event(InputEventType::MouseButtonReleased, 210, 30)}, Metrics());
+    Check(clicks == 2, "release outside view does not click even inside control rectangle");
+    probe->SetRect({5, 8, 20, 10});
+    int late = 0;
+    probe->ClearClickListeners();
+    probe->AddClickListener([&] {
+        probe->ClearClickListeners();
+        probe->AddClickListener([&] { ++late; });
+    });
+    probe->AddClickListener([&] { ++clicks; });
+    click(40, 30);
+    Check(clicks == 3 && late == 0, "listener mutation uses notification snapshot");
+    click(40, 30);
+    Check(late == 1, "new listener starts on next click");
+    probe->ClearClickListeners();
+    int accumulated = 0;
+    probe->AddClickListener([&, count = 0]() mutable { accumulated = ++count; });
+    click(40, 30);
+    click(40, 30);
+    Check(accumulated == 2, "mutable listener state survives snapshots");
+    probe->ClearClickListeners();
+    probe->AddClickListener([&] { context.Remove(handle); });
+    click(40, 30);
+    Check(!context.Resolve(handle), "button may delete itself in click listener");
+}
+
 void Submission() {
-    UIContext context;
+    UIContext context{};
     context.SetView(View());
     std::vector<int> order;
     auto a = context.AddRoot(Element({}));
@@ -204,7 +316,9 @@ int main() {
         SubViewportAndVisibility();
         DeferredMutations();
         Submission();
-        std::cout << "UIContext: 5 regression suites passed\n";
+        Images();
+        Buttons();
+        std::cout << "UI: 7 regression suites passed\n";
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

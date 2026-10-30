@@ -2,6 +2,7 @@
 #define O_UI_ELEMENT
 
 #include "UI/UITypes.h"
+#include <glm/glm.hpp>
 #include <cstdint>
 
 namespace eng
@@ -36,9 +37,12 @@ protected:
     virtual void OnLayout() {}              
     virtual void OnVisibilityChanged(bool visible) {}
 
+    glm::mat4 GetModelMatrix() const;
+    bool InsideRect(const glm::vec2& viewPosition) const;
+
 private:
     UIContext* m_context = nullptr; // Non-owning; assigned only after mounting.
-    UIRect m_localRect;
+    UIRect m_localRect{0.0f, 0.0f, 100.0f, 100.0f};
     UIRect m_arrangedRect;
     bool m_layoutDirty = true;
 

@@ -1,6 +1,6 @@
 # UIContext 与 UIElement 初版
 
-本轮实现的是 UI 基础设施，不包含 UIImage、UIButton、UIText、字体、锚点/自动布局或裁剪。详细后续路线见 `drafts/ui-system-implementation-plan.md`。
+当前已实现 UI 基础设施以及初版 UIImage、UIButton；UIText、字体、锚点/自动布局和裁剪仍未实现。详细后续路线见 `drafts/ui-system-implementation-plan.md`。
 
 ## 所有权与句柄
 
@@ -60,7 +60,7 @@ ui.Submit(queue); // 内部调用 Layout，不应嵌套在另一个 BeginScreenV
 
 ## 验证
 
-`engine/test/UIContextTests.cpp` 包含五组无窗口回归测试：布局/句柄、输入捕获、DPI/子 viewport 与状态传播、有序延迟操作、提交排序。构建和运行：
+`engine/test/UIContextTests.cpp` 包含七组无窗口回归测试：布局/句柄、输入捕获、DPI/子 viewport 与状态传播、有序延迟操作、提交排序、图片参数/绘制矩阵、按钮点击/监听器安全。构建和运行：
 
 ```text
 cmake -S . -B build -DENGINE_BUILD_TESTS=ON
@@ -69,3 +69,17 @@ ctest --test-dir build -C Debug --output-on-failure
 ```
 
 测试不初始化 OpenGL，验证的是逻辑而非实际图片输出；控件和图形效果仍需后续可视化验收。
+
+## UIImage 与 UIButton
+
+UIImage 根据 arrangedRect 而非 localRect 生成 quad 矩阵，保证嵌套节点的绘制位置和 UIContext 命中一致；零面积矩形不提交命令。UV 与 tint setter 拒绝非有限数值。`GetLowerLeftUV()` 是规范拼写，旧 `GetlowerLeftUV()` 暂时保留兼容。
+
+UIButton 初版直接继承 UIImage，复用 texture、UV、tint 和绘制提交，不引入独立样式资源类。推荐直接使用 `SetTexture`、`SetTint`、`SetUV`。`SetBackground(const UIImage*)` 只复制调用当时的纹理共享引用、UV、tint，不持有源节点指针，也不复制其 Rect、visibility 或 enabled。源节点之后删除或改变外观不影响按钮；旧 `SetBackGround` 保留兼容。当前不提供跨节点实时背景绑定。
+
+左键 Down 在控件内时记录按下，Up 时清除记录，只有此前按下、未被 Cancel、释放时仍在控件及 UI viewport 内才触发点击；单独 Up 不会点击。Leave 不取消整个手势，因此移出再移回后释放可以点击。隐藏、禁用、删除或显式 Cancel 都会取消按下。
+
+`AddClickListener` 忽略空函数。通知使用监听器条目的快照，同时保留可调用对象本身的状态；回调里 Add/Clear 只影响下一次通知，当前快照中的其他监听器仍执行。结构销毁由 UIContext 延迟完成，因此监听器中可以 Remove 自身，但不能销毁当前 UIContext。尚未加入逐项退订 token，长期订阅或绑定外部对象时仍需自行保证捕获对象生命周期。
+
+空 texture 的 screen quad 使用 RenderQueue 的默认白纹理，可以用 tint 绘制纯色按钮。默认白纹理是队列初始化的必需资源；初始化失败不会报告成功，并在 ShutDown 时释放。初始化依赖的 `assets/texture/default/white.png` 应与其他默认资源一并提交。
+
+当前按钮尚未实现 Normal/Hover/Pressed/Disabled 的自动样式切换；这属于下一步外观能力，不应通过在事件回调中修改共享 Material 来实现。示例应用应在 ProcessInput 前更新 view，并在 Scene 的 screen view 后提交 UI；同时继续用 UICapture 约束 gameplay 输入。

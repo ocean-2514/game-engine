@@ -8,6 +8,7 @@
 #include "Renderer/Texture.h"
 #include "Renderer/MeshFactory.h"
 #include "IO/FileSystem.h"
+#include "Assets/AssetManager.h"
 
 #include <algorithm>
 #include <cmath>
@@ -131,7 +132,8 @@ RenderCommand::RenderCommand(
       material(std::move(materialValue)),
       modelMatrix(modelMatrix) {}
 
-bool RenderQueue::Init(RenderDevice& device, FileSystem& fileSystem) {
+bool RenderQueue::Init(RenderDevice& device, 
+    FileSystem& fileSystem, AssetManager& assetManager) {
     m_quadMesh = MeshFactory::CreatePlane(device, 1.0f, 1.0f);
     const auto vsCode = fileSystem.LoadAssetTextFile("shader/default/screen_quad_vs.glsl");
     const auto fsCode = fileSystem.LoadAssetTextFile("shader/default/screen_quad_fs.glsl");
@@ -142,7 +144,11 @@ bool RenderQueue::Init(RenderDevice& device, FileSystem& fileSystem) {
     m_screenRenderState.blend.blendEnable = true;
     m_screenRenderState.rasterizer.cullMode = CullMode::None;
 
-    return m_quadMesh != nullptr && m_quadMesh->IsValid()
+    m_defaultTexture = assetManager.LoadTexture(
+        {.path = "texture/default/white.png"});
+
+    return m_defaultTexture != nullptr && m_defaultTexture->IsValid()
+        && m_quadMesh != nullptr && m_quadMesh->IsValid()
         && m_defaultScreenShader != nullptr 
         && m_defaultScreenShader->IsValid();
 }
@@ -153,7 +159,7 @@ bool RenderQueue::IsValid(const RenderCommand& command) {
 }
 
 bool RenderQueue::IsValid(const ScreenQuadCommand& command) {
-    return command.texture && command.texture->IsValid() &&
+    return (!command.texture || command.texture->IsValid()) &&
         (!command.shader || command.shader->IsValid()) &&
         IsFinite(command.modelMatrix) && IsFinite(command.lowerLeftUV) &&
         IsFinite(command.upperRightUV) && IsFinite(command.color);
@@ -423,7 +429,8 @@ void RenderQueue::ExecuteScreenQuad(RenderDevice& device,
             shader->SetVec2("uLowerLeftUV", cmd.lowerLeftUV);
             shader->SetVec2("uUpperRightUV", cmd.upperRightUV);
             
-            shader->SetTexture("uTexture", *cmd.texture, 0);
+            shader->SetTexture("uTexture", 
+                cmd.texture ? *cmd.texture : *m_defaultTexture, 0);
             
             m_quadMesh->Bind();
             m_quadMesh->Draw();
@@ -468,6 +475,7 @@ void RenderQueue::ShutDown() {
     InvalidateStateCache();
     m_quadMesh.reset();
     m_defaultScreenShader.reset();
+    m_defaultTexture.reset();
 }
 
 void RenderQueue::InvalidateStateCache() {

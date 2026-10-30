@@ -16,6 +16,7 @@ public:
     void Destroy() override;
 
     std::unique_ptr<eng::Scene> scene;
+    std::unique_ptr<eng::UIContext> uiContext;
     Camera* camera;
     Player player;
 
