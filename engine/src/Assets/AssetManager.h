@@ -4,6 +4,7 @@
 #include "Assets/MaterialAssetLoader.h"
 #include "Assets/ModelAssetLoader.h"
 #include "Assets/TextureAssetLoader.h"
+#include "Assets/FontAssetLoader.h"
 #include "Assets/Scene/SceneDesc.h"
 #include "Assets/Scene/SceneLoadResult.h"
 #include "Assets/Scene/SceneTypeRegistry.h"
@@ -21,6 +22,7 @@ class Model;
 class RenderDevice;
 class Texture;
 class AudioManager;
+class Font;
 
 class AssetManager {
 public:
@@ -29,6 +31,7 @@ public:
 
     std::shared_ptr<Texture> LoadTexture(
         const TextureAssetDesc& desc) const;
+    std::shared_ptr<Font> LoadFont(const FontAssetDesc& desc) const;
     std::shared_ptr<Material> LoadMaterial(
         const std::string& relativePath) const;
     std::shared_ptr<Material> InstantiateMaterial(
@@ -53,6 +56,7 @@ private:
     AudioManager& m_audioManager;
     SceneTypeRegistry m_sceneTypeRegistry;
     TextureAssetLoader m_textureLoader;
+    FontAssetLoader m_fontLoader;
     MaterialAssetLoader m_materialLoader;
     ModelAssetLoader m_modelLoader;
 };

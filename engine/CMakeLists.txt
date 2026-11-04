@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.50)
 
 project(engine LANGUAGES C CXX)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -25,7 +25,7 @@ target_include_directories(glad PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Build only the Bullet 2 libraries used by the engine. Keep Bullet's source
 # tree intact, but exclude its demos, tests, Python bindings, and optional extras.
-set(BULLET3_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/include/bullet3)
+set(BULLET3_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/bullet3)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static Bullet libraries" FORCE)
 set(BUILD_BULLET3 OFF CACHE BOOL "Disable Bullet 3" FORCE)
 set(BUILD_CPU_DEMOS OFF CACHE BOOL "Disable Bullet demos" FORCE)
@@ -43,6 +43,19 @@ set(INSTALL_LIBS OFF CACHE BOOL "Disable Bullet installation targets" FORCE)
 set(INSTALL_CMAKE_FILES OFF CACHE BOOL
     "Disable Bullet CMake package installation" FORCE)
 add_subdirectory(${BULLET3_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/bullet3 EXCLUDE_FROM_ALL)
+
+set(FT_DISABLE_ZLIB ON CACHE BOOL "Disable FreeType zlib support" FORCE)
+set(FT_DISABLE_BZIP2 ON CACHE BOOL "Disable FreeType bzip2 support" FORCE)
+set(FT_DISABLE_PNG ON CACHE BOOL "Disable FreeType PNG support" FORCE)
+set(FT_DISABLE_HARFBUZZ ON CACHE BOOL "Disable FreeType HarfBuzz support" FORCE)
+set(FT_DISABLE_BROTLI ON CACHE BOOL "Disable FreeType Brotli support" FORCE)
+set(FT_DISABLE_HVF ON CACHE BOOL "Disable FreeType HVF support" FORCE)
+set(SKIP_INSTALL_ALL ON)
+add_subdirectory(
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/freetype
+    ${CMAKE_CURRENT_BINARY_DIR}/freetype
+    EXCLUDE_FROM_ALL
+)
 
 set(ENGINE_SRC
     include/miniaudio/miniaudio.c
@@ -110,12 +123,18 @@ set(ENGINE_SRC
     src/UI/UIContext.cpp
     src/UI/UIImage.cpp
     src/UI/UIButton.cpp
+    src/Assets/Font/FontFace.cpp
+    src/Assets/FontAssetLoader.cpp
+    src/Assets/Font/Font.cpp
+    src/Assets/Font/GlyphAtlas.cpp
+    src/UI/UIText.cpp
 )
 
 add_library(engine STATIC ${ENGINE_SRC})
 
 target_include_directories(engine PRIVATE
     ${BULLET3_ROOT}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/freetype/include
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_include_directories(engine PUBLIC
@@ -128,6 +147,7 @@ target_link_libraries(engine PUBLIC
     libglfw3dll.a
     glad
     libassimp
+    freetype
 )
 target_link_libraries(engine PRIVATE
     BulletDynamics

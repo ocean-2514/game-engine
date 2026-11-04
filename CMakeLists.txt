@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.50)
 
 project(my_engine)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -35,6 +35,12 @@ if(ENGINE_BUILD_TESTS)
     add_executable(ui_context_tests engine/test/UIContextTests.cpp)
     target_link_libraries(ui_context_tests PRIVATE engine)
     add_test(NAME ui_context_tests COMMAND ui_context_tests)
+    add_executable(font_asset_tests engine/test/FontAssetTests.cpp)
+    target_link_libraries(font_asset_tests PRIVATE engine)
+    add_test(NAME font_asset_tests COMMAND font_asset_tests)
+    add_executable(opengl_texture_tests engine/test/OpenGLTextureTests.cpp)
+    target_link_libraries(opengl_texture_tests PRIVATE engine)
+    add_test(NAME opengl_texture_tests COMMAND opengl_texture_tests)
 endif()
 
 #copy dll

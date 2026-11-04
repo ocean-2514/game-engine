@@ -13,6 +13,7 @@ AssetManager::AssetManager(
       m_renderDevice(renderDevice),
       m_audioManager(audioManager),
       m_textureLoader(fileSystem, renderDevice),
+      m_fontLoader(fileSystem, renderDevice),
       m_materialLoader(fileSystem, renderDevice, m_textureLoader),
       m_modelLoader(
           fileSystem,
@@ -30,6 +31,10 @@ std::shared_ptr<Texture> AssetManager::LoadTexture(
 std::shared_ptr<Material> AssetManager::LoadMaterial(
     const std::string& relativePath) const {
     return m_materialLoader.Load(relativePath);
+}
+
+std::shared_ptr<Font> AssetManager::LoadFont(const FontAssetDesc& desc) const {
+    return m_fontLoader.LoadFont(desc);
 }
 
 std::shared_ptr<Material> AssetManager::InstantiateMaterial(
@@ -71,6 +76,7 @@ void AssetManager::ClearCaches() {
     m_modelLoader.ClearCache();
     m_materialLoader.ClearCache();
     m_textureLoader.ClearCache();
+    m_fontLoader.ClearCache();
 }
 
 } // namespace eng

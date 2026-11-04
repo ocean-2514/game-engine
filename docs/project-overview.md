@@ -84,26 +84,10 @@ GLFW/Assimp 当前使用随仓库提供的 Windows MinGW 链接文件；其余�
 
 场景文件包含版本、名称、对象 ID、Transform 和类型化组件定义。组件的 JSON 格式由 SceneTypeRegistry 与各 ComponentCodec 决定；不能仅根据 C++ 构造函数推断 JSON 字段。可以从 `assets/scenes/scene1.json` 和 `engine/src/Assets/Scene/ComponentCodec/` 开始阅读。
 
-## 简历项目描述参考
 
-以下文案只总结当前仓库中可检查的实现，可按目标岗位删减；不要额外添加未经测量的性能数字、跨平台兼容性或“生产级”承诺。
-
-> 使用 C++17、OpenGL 与 CMake 持续开发学习型游戏引擎，围绕 Engine/Application、Scene/GameObject/Component、AssetManager、RenderDevice/RenderQueue 建立基础运行框架。实现 GLFW 输入事件采集、JSON 场景解析与实例化、Assimp 模型导入、基于 Bullet 的固定步长物理、骨骼动画状态机与 1D Blend Tree，以及 miniaudio 声源和屏幕空间 UI 初版。通过后端封装、generation handle、有序延迟结构变更和 Parse/Resolve/Instantiate 资源流程实践模块边界、生命周期管理与数据驱动架构。
-
-可用于面试深入解释的设计问题：
-
-- 为什么“延迟提交结构修改”比遍历期间直接 `vector::erase` 安全？它的 staged 返回值和错误边界如何定义？
-- 固定步长如何与帧更新和渲染插值分离？过载丢步对模拟时间有何影响？
-- 为什么场景解析要分成描述、依赖解析和实例化，而不是在 JSON 解析函数里直接 new 所有运行时对象？
-- RenderQueue 中哪些数据是 per-view、per-material、per-draw？哪些可以缓存，材质 revision 为什么重要？
-- 目前 OpenGL 抽象隔离了什么；如果换 Vulkan，资源寿命、管线与同步会暴露哪些新设计问题？
-
-这些是对代码架构的讨论题，不表示这些问题已经有最终或通用解法。项目当前没有完整 UI/gameplay 输入路由：UICapture API 已有，但示例控制器仍读取全局输入状态；如果简历强调 UI 输入集成，应先完成并验证这段链路。
+这些是对代码架构的讨论题，不表示这些问题已经有最终或通用解法。项目当前没有完整 UI/gameplay 输入路由：UICapture API 已有，但示例控制器仍读取全局输入状态；
 
 ## 文档
 
 - [构建与运行](build-and-run.md)
 - [架构导览](architecture-guide.md)
-- 项目作者的本地设计讨论可能放在 `discussions/`；该目录当前被 `.gitignore` 排除，其他克隆者不一定会得到它。
-
-讨论文档旨在保留方案取舍和迭代上下文；其中的“建议增加”不代表仓库中已有对应代码。

@@ -2,6 +2,7 @@
 #define O_TEXTURE
 
 #include "Renderer/TextureDesc.h"
+#include <cstddef>
 
 namespace eng
 {
@@ -22,6 +23,10 @@ public:
     TextureFormat GetFormat() const;
     bool HasAlphaChannel() const;
     virtual bool IsValid() const = 0;
+    // Tightly packed rows, in the texture's existing format. Copies data before
+    // returning; false leaves callers free to retry (e.g. a dirty glyph page).
+    virtual bool Update(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+        const void* pixels, std::size_t byteCount) = 0;
 
 protected:
     Texture() = default;

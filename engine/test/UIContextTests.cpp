@@ -188,6 +188,8 @@ struct ButtonProbe : UIButton {
 };
 struct TestTexture : Texture {
     bool IsValid() const override { return true; }
+    bool Update(uint32_t, uint32_t, uint32_t, uint32_t,
+        const void*, std::size_t) override { return true; }
 };
 
 void Images() {

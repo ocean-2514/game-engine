@@ -21,11 +21,14 @@ public:
     ~OpenGLTexture() override;
 
     bool IsValid() const override;
+    bool Update(uint32_t x, uint32_t y, uint32_t width, uint32_t height,
+        const void* pixels, std::size_t byteCount) override;
 
 private:
     void Bind(uint32_t unit) const;
 
     GLuint m_textureId = 0;
+    bool m_generateMipmaps = false;
 
     friend class OpenGLShaderProgram;
 };
