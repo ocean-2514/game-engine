@@ -128,9 +128,12 @@ set(ENGINE_SRC
     src/Assets/Font/Font.cpp
     src/Assets/Font/GlyphAtlas.cpp
     src/UI/UIText.cpp
+    src/UI/Utf8.cpp
+    src/UI/TextTypes.cpp
 )
 
-add_library(engine STATIC ${ENGINE_SRC})
+add_library(engine STATIC ${ENGINE_SRC}
+    src/UI/TextLayout.cpp)
 
 target_include_directories(engine PRIVATE
     ${BULLET3_ROOT}/src

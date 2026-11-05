@@ -61,7 +61,6 @@ struct FontDiagnostics {
     uint32_t uploadFailures = 0;
 };
 
-// 排版只需要度量；测试可提供假实现。
 class GlyphProvider {
 public:
     virtual ~GlyphProvider() = default;
@@ -75,7 +74,6 @@ public:
         uint32_t rasterPixelSize) = 0;
 };
 
-// 绘制还需要图集纹理与 shader。
 class GlyphRenderSource : public GlyphProvider {
 public:
     virtual std::optional<GlyphRenderData> GetGlyphRenderData(

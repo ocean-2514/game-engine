@@ -41,6 +41,9 @@ if(ENGINE_BUILD_TESTS)
     add_executable(opengl_texture_tests engine/test/OpenGLTextureTests.cpp)
     target_link_libraries(opengl_texture_tests PRIVATE engine)
     add_test(NAME opengl_texture_tests COMMAND opengl_texture_tests)
+    add_executable(text_layout_tests engine/test/TextLayoutTests.cpp)
+    target_link_libraries(text_layout_tests PRIVATE engine)
+    add_test(NAME text_layout_tests COMMAND text_layout_tests)
 endif()
 
 #copy dll
