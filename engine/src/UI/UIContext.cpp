@@ -73,6 +73,14 @@ void UIContext::SetView(const ScreenViewDesc& desc) {
     m_layoutDirty = true;
 }
 
+float UIContext::GetPixelScale() const {
+    if (!std::isfinite(m_screenView.logicalHeight) || m_screenView.logicalHeight <= 0
+        || m_screenView.viewport.height <= 0) return 1.0f;
+    const float scale = m_screenView.viewport.height / m_screenView.logicalHeight;
+    return std::isfinite(scale) && scale > 0 ? scale : 1.0f;
+}
+ScreenOrigin UIContext::GetScreenOrigin() const { return m_screenView.origin; }
+
 void UIContext::NotifyElementStateChanged(UIElementHandle handle, bool visibilityChanged) {
     auto notify = [&] {
         auto* element = Resolve(handle);

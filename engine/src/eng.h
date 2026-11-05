@@ -17,6 +17,7 @@
 #include "Assets/AssetManager.h"
 #include "Assets/ModelAssetLoader.h"
 #include "Assets/ImageLoader.h"
+#include "Assets/Font/Font.h"
 #include "Graphics/VertexLayout.h"
 #include "Input/InputManager.h"
 #include "Scene/Scene.h"
@@ -41,5 +42,6 @@
 #include "UI/UIElement.h"
 #include "UI/UIImage.h"
 #include "UI/UIButton.h"
+#include "UI/UIText.h"
 
 #endif

@@ -35,6 +35,10 @@ public:
     // Call when the window loses focus or the application deactivates this UI.
     void CancelPointerInput();
     void SetView(const ScreenViewDesc& desc);
+    // Physical pixels per logical pixel on the vertical axis. Keep the view's
+    // X/Y scales equal for undistorted text and exact two-axis pixel snapping.
+    float GetPixelScale() const;
+    ScreenOrigin GetScreenOrigin() const;
     void Layout();                        
     UICapture ProcessInput(
         const std::vector<InputEvent>& events,

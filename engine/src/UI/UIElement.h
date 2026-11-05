@@ -39,6 +39,8 @@ protected:
 
     glm::mat4 GetModelMatrix() const;
     bool InsideRect(const glm::vec2& viewPosition) const;
+    void InvalidateLayout();
+    const UIContext* GetUIContext() const;
 
 private:
     UIContext* m_context = nullptr; // Non-owning; assigned only after mounting.

@@ -62,6 +62,14 @@ struct UIPointerEvent {
     uint8_t mods = 0;               // shift/ctrl/alt 快照，按钮组合键可能用
 };
 
+inline glm::mat4 MakeUIRectMatrix(const UIRect& rect) {
+    glm::mat4 matrix{1.0f};
+    matrix[0][0] = rect.width;
+    matrix[1][1] = rect.height;
+    matrix[3][0] = rect.x + rect.width * 0.5f;
+    matrix[3][1] = rect.y + rect.height * 0.5f;
+    return matrix;
+}
 
 } // namespace eng
 

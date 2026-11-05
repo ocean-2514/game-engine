@@ -127,15 +127,19 @@ Engine 独占一个 AudioManager / miniaudio engine；Scene 将 AudioManager 注
 
 ## UI 边界
 
-UIContext 独占 UIElement 树，与 Scene 的世界对象树分离。元素以带 generation 的本地句柄引用；遍历期结构变更延迟执行。UIContext 将 InputEvent 坐标映射到 ScreenView，执行命中、捕获和元素事件分发，再把屏幕四边形值命令交给 RenderQueue。UIImage 持有 Texture 共享引用；UIButton 复用图片呈现并在按下/释放规则满足后通知点击监听器。
+UIContext 独占 UIElement 树，与 Scene 的世界对象树分离。它拥有根节点和子节点；通过 `unique_ptr` 转移所有权，通过带 generation 的 UIElementHandle 做短期查询。遍历回调中的增删会排队，并在安全边界应用；删除节点会递归删除子树并使旧句柄失效。
 
-当前 UI 仅是基础层和示例控件，不含自动布局、裁剪、文本/字体、键盘焦点、导航或复杂主题。应用应使用 UICapture 控制 UI 与 gameplay 是否同时消费指针输入，并在窗口失焦时取消捕获。
+当前基础控件包括 UIImage、UIButton 和 UIText。UIImage 提交纹理、UV 和 tint；UIButton 支持图片背景快照、文本 label 和点击监听器；UIText 使用 AssetManager 加载的字体产生屏幕字形 quad。文本布局支持 UTF-8 解码、字距、硬换行、无换行/按词/按字符换行、简化 CJK 断行、水平/垂直对齐、行距、Tab 展开和物理像素对齐。字体由 FreeType 栅格化并放入字形图集。详细 API 与使用示例见 [UI 系统](ui-system.md)。
 
-`UIRect` 是父节点坐标系中的逻辑像素矩形；布局当前是绝对位置与尺寸，不会根据父尺寸自动 stretch。屏幕鼠标逻辑坐标先按 logical window/framebuffer 比例换算，再扣除 viewport 偏移并转到 UI view；TopLeft/BottomLeft view 均有明确原点语义。RenderOrder 影响绘制顺序，命中测试逆序查找顶层交互元素。隐藏节点不绘制/命中，禁用节点仍绘制但不交互，删除/失焦时向捕获节点发 Cancel。
+`UIRect` 是父节点坐标系中的逻辑像素矩形。布局是绝对位置与尺寸；子节点位置相对父节点原点，但不会自动 stretch、dock 或根据内容排列。尺寸、父布局或 ScreenView 变化会使布局失效；UIText/UIButton label 在字号、文本、字体、盒子尺寸或像素比例变化时重新排版，单纯移动和颜色变化不需要重排。
 
-UIButton 的点击是同一个 capture 手势上 Down 后再 Up，释放仍在元素及 view 内才通知；仅有 Up 不会误触发。背景接口复制 UIImage 当下的 texture/UV/tint，而不保存另一个控件裸指针。点击 listener 修改列表采用当前通知快照。UIContext 返回 UICapture，但示例角色控制器仍直接读取全局 InputManager，当前 Game 还没有完整把 UI 捕获结果路由给 gameplay，这是可验证的集成缺口。
+ScreenView 同时描述逻辑宽高、framebuffer viewport 和 TopLeft/BottomLeft 原点。指针从窗口逻辑坐标映射到 framebuffer，再转换到 viewport 内的 UI 逻辑坐标；文本栅格字号按 view 的物理像素比例缩放。各向异性 viewport 比例不适合作为文本缩放比例，保持 X/Y 比例一致可避免字形变形。
 
-UIContext 需要显式在其他屏幕视图之后提交，才能覆盖其上；Engine/Application 没有内建的全局 UIContext 生命周期。当前按钮不含自动 Hover/Pressed/Disabled 主题、label 文本、键盘导航或无障碍语义。
+绘制顺序按稳定的 RenderOrder 排序，命中测试反向使用同一顺序，因此最上层交互节点优先命中。Hidden 不绘制且禁用整棵子树交互；Collapsed 还会把布局尺寸置零；禁用节点仍绘制但不交互；HitTestVisible=false 只跳过该节点，仍允许命中其子节点。UIButton 只处理左键：按下建立 capture，释放仍在按钮矩形和 UI view 内才触发；Cancel、隐藏或禁用会结束按压。按钮目前没有自动 Hover/Pressed/Disabled 视觉主题。
+
+`ProcessInput` 返回 UICapture，目前只报告 pointer capture，键盘焦点/导航尚未实现。应用需要自行决定是否让 gameplay 同时消费输入；示例 Game 当前调用 ProcessInput，但没有用返回值屏蔽第三人称控制器的全局输入。窗口失焦或 UI 停用时应调用 `CancelPointerInput()`。
+
+UIContext 必须由应用持有，并在其他屏幕空间内容之后调用 `Submit(RenderQueue&)`，才能成为最上层 overlay。Engine/Application 尚未内建全局 UIContext 生命周期、自动布局、裁剪/滚动、键盘焦点与无障碍系统。
 
 ## 扩展约定
 

@@ -1,4 +1,5 @@
 #include "UI/UIButton.h"
+#include "UI/UIContext.h"
 #include <utility>
 
 namespace eng {
@@ -16,6 +17,21 @@ void UIButton::AddClickListener(std::function<void()> listener) {
 }
 
 void UIButton::ClearClickListeners() { m_clickListeners.clear(); }
+
+void UIButton::SetLabel(
+    std::shared_ptr<GlyphRenderSource> source, 
+    std::string text) {
+    m_label.SetSource(std::move(source));
+    m_label.SetText(text);
+}
+
+void UIButton::SetLabelStyle(const TextStyle& style) {
+    m_label.SetStyle(style);
+}
+
+void UIButton::ClearLabel() {
+    m_label.Invalidate();
+}
 
 void UIButton::OnPointerEvent(const UIPointerEvent& event) {
     // Cancel must work even after disabling/hiding this control.
@@ -35,5 +51,18 @@ void UIButton::OnPointerEvent(const UIPointerEvent& event) {
         for (const auto& listener : listeners) (*listener)();
     }
 }
+
+void UIButton::OnLayout() {
+    const auto* context = GetUIContext();
+    m_label.UpdateLayout(GetArrangedRect(), context ? context->GetPixelScale() : 1.0f);
+}
+
+void UIButton::OnSubmit(UIDrawList& drawList) const {
+    UIImage::OnSubmit(drawList);
+    m_label.AppendQuads(drawList,
+        GetArrangedRect(), GetRenderOrder(),
+        GetUIContext() ? GetUIContext()->GetScreenOrigin() : ScreenOrigin::TopLeft);
+}
+
 
 } // namespace eng

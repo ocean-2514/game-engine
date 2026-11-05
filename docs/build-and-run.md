@@ -4,7 +4,7 @@
 
 仓库的 CMake 配置要求 CMake 3.50 及以上、C/C++ 编译器和 C++17。当前仓库提供 `libglfw3dll.a`、`libassimp.dll.a` 等 MinGW import libraries，以及对应 Windows DLL，因此本说明仅覆盖 Windows + MinGW-w64。其他编译器或操作系统目前没有验证，不应视作已支持。
 
-Bullet 2 以源码加入构建；GLFW 和 Assimp 使用仓库提供的预编译链接文件。GLM、GLAD、stb_image、RapidJSON 和 miniaudio 的头文件或源码随仓库提供。若调整编译器/架构，预编译库必须与目标 ABI 匹配。
+Bullet 2 和 FreeType 以源码加入构建；GLFW 和 Assimp 使用仓库提供的预编译链接文件。GLM、GLAD、stb_image、RapidJSON 和 miniaudio 的头文件或源码随仓库提供。若调整编译器/架构，预编译库必须与目标 ABI 匹配。
 
 ## 构建
 
@@ -27,7 +27,7 @@ cmake --build build --config Debug -j 4
 
 ## 测试
 
-当前可选测试主要覆盖 UI 的无窗口逻辑，不代表渲染画面、音频设备或物理行为已有完整自动化验收：
+当前可选测试覆盖 UI 树/指针输入、文本布局、UIText 集成、字体资源和纹理逻辑，不代表最终渲染画面、音频设备或物理行为已有完整自动化验收：
 
 ```powershell
 ctest --test-dir build -C Debug --output-on-failure

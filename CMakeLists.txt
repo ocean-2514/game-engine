@@ -44,6 +44,9 @@ if(ENGINE_BUILD_TESTS)
     add_executable(text_layout_tests engine/test/TextLayoutTests.cpp)
     target_link_libraries(text_layout_tests PRIVATE engine)
     add_test(NAME text_layout_tests COMMAND text_layout_tests)
+    add_executable(ui_text_tests engine/test/UITextTests.cpp)
+    target_link_libraries(ui_text_tests PRIVATE engine)
+    add_test(NAME ui_text_tests COMMAND ui_text_tests)
 endif()
 
 #copy dll

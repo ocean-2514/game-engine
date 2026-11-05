@@ -17,7 +17,7 @@
 | Physics | Scene 拥有 PhysicsWorld，Bullet 后端，固定步长、刚体、碰撞形状、Raycast、事件和插值 | 没有形状共享缓存、刚体约束、角色控制器和调试绘制；事件仍以查询值为主 |
 | Animation | 骨骼动画、动画切换、状态机、参数、Trigger、1D Blend Tree | 更复杂的动画层、混合树、事件、根运动与资产化控制器仍可继续完善 |
 | Audio | Engine 级 AudioManager、AudioComponent、AudioListenerComponent，基于 miniaudio | 没有混音器 UI、空间遮挡、音频事件图和复杂资源流式策略 |
-| 2D / UI | 世界/屏幕 2D Sprite 路径；UIContext、UIElement、UIImage、UIButton 初版 | UI 自动布局、裁剪、文本/字体、控件样式、焦点/导航尚未实现 |
+| 2D / UI | 世界/屏幕 2D Sprite；UIContext 树、绝对布局、图片、按钮、字体文本、指针命中与 capture | 没有自动布局/裁剪/滚动、键盘焦点/导航、无障碍或完整控件主题 |
 
 上表描述代码现状的高层快照，不是完整测试保证。开始实现新功能前，应以头文件、实现和当前示例为准；设计讨论文档可能记录了尚未实现或已过期的方案。
 
@@ -49,6 +49,7 @@ Scene JSON 不由各组件直接读取。Parser 生成描述数据并验证 sche
 | 模型导入 | Assimp | 导入常见模型/动画文件到引擎 Model/Mesh 数据 |
 | 物理 | Bullet 2 | 刚体、形状、碰撞检测和求解 |
 | 音频 | miniaudio | 设备、音频声源与播放 |
+| 字体 | FreeType | 字形度量、栅格化与 UI 字形图集 |
 | 图像 / JSON | stb_image、RapidJSON | 图片解码、材质与场景描述解析 |
 
 GLFW/Assimp 当前使用随仓库提供的 Windows MinGW 链接文件；其余依赖的许可证应随第三方源码/头文件检查。项目没有统一的依赖管理器锁文件或跨平台 CI。
@@ -61,6 +62,7 @@ GLFW/Assimp 当前使用随仓库提供的 Windows MinGW 链接文件；其余�
 ├── docs/                    面向仓库读者的概览、构建和架构文档
 ├── engine/
 │   ├── include/             随项目使用的第三方头文件/源码
+│   ├── thirdparty/          Bullet 与 FreeType 源码
 │   └── src/
 │       ├── Assets/          资源描述、加载、场景 Codec/Registry
 │       ├── Audio/           音频管理
@@ -69,7 +71,7 @@ GLFW/Assimp 当前使用随仓库提供的 Windows MinGW 链接文件；其余�
 │       ├── Platform/        Window 抽象与 GLFW 实现
 │       ├── Renderer/        渲染接口、命令队列与 OpenGL 后端
 │       ├── Scene/           Scene、GameObject 与 Components
-│       └── UI/              UI 树、屏幕图片与按钮
+│       └── UI/              UI 树、图片/按钮、文本布局与绘制
 ├── src/                     示例应用与游戏逻辑
 ├── include/                 示例应用头文件
 ├── lib/、bin/               当前 Windows/MinGW 第三方链接库与运行 DLL
@@ -78,16 +80,17 @@ GLFW/Assimp 当前使用随仓库提供的 Windows MinGW 链接文件；其余�
 
 ## 示例程序
 
-入口是 `src/main.cpp`，示例应用位于 `src/Game/`。当前示例从 `assets/scenes/scene1.json` 加载地面、立方体、灯光等对象，再由游戏代码创建带物理和程序化动画 Controller 的角色、相机与控制器，并建立一个按钮示例。这个组合主要用于验证系统集成，不是功能完整的演示关卡。
+入口是 `src/main.cpp`，示例应用位于 `src/Game/`。当前示例从 `assets/scenes/scene1.json` 加载场景，再由游戏代码创建角色、相机与控制器。UIContext 中有一个带图片背景和文本 label 的按钮，以及独立的 UTF-8 文本元素；字体通过 AssetManager 从 `assets/font/` 加载。这个组合主要用于验证系统集成，不是功能完整的演示关卡。
 
-运行时可以用 `W/A/S/D` 移动、`Space` 跳跃、鼠标移动调整第三人称视角、滚轮调节视野；`Q/E` 为竖直移动，移动时按鼠标右键切换行走/奔跑。示例 UI 按钮位于屏幕左上角，点击会向控制台输出文字。上述行为属于示例 Game/Script，并不意味着引擎提供统一的 Action Mapping；尤其 UICapture 当前尚未接入角色输入门控。
+运行时可以用 `W/A/S/D` 移动、`Space` 跳跃、鼠标移动调整第三人称视角、滚轮调节视野；`Q/E` 为竖直移动，移动时按鼠标右键切换行走/奔跑。示例 UI 按钮位于屏幕左上角，点击会向控制台输出文字。上述行为属于示例 Game/Script，并不意味着引擎提供统一的 Action Mapping；UICapture API 尚未接入角色输入门控。
 
 场景文件包含版本、名称、对象 ID、Transform 和类型化组件定义。组件的 JSON 格式由 SceneTypeRegistry 与各 ComponentCodec 决定；不能仅根据 C++ 构造函数推断 JSON 字段。可以从 `assets/scenes/scene1.json` 和 `engine/src/Assets/Scene/ComponentCodec/` 开始阅读。
 
 
-这些是对代码架构的讨论题，不表示这些问题已经有最终或通用解法。项目当前没有完整 UI/gameplay 输入路由：UICapture API 已有，但示例控制器仍读取全局输入状态；
+UI 的控件、坐标、文本、输入和渲染提交方式见 [UI 系统](ui-system.md)。
 
 ## 文档
 
 - [构建与运行](build-and-run.md)
 - [架构导览](architecture-guide.md)
+- [UI 系统](ui-system.md)

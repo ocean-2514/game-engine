@@ -130,10 +130,11 @@ set(ENGINE_SRC
     src/UI/UIText.cpp
     src/UI/Utf8.cpp
     src/UI/TextTypes.cpp
+    src/UI/TextLayout.cpp
+    src/UI/TextPainter.cpp
 )
 
-add_library(engine STATIC ${ENGINE_SRC}
-    src/UI/TextLayout.cpp)
+add_library(engine STATIC ${ENGINE_SRC})
 
 target_include_directories(engine PRIVATE
     ${BULLET3_ROOT}/src

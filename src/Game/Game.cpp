@@ -54,14 +54,26 @@ bool Game::Init() {
     uiContext = std::make_unique<eng::UIContext>();
     auto image = std::make_unique<eng::UIImage>(texture);
     image->SetVisibility(eng::UIVisibility::Collapsed);
-    image->SetRect({100.0f, 100.0f, 100.0f, 100.0f});
     auto button = std::make_unique<eng::UIButton>();
+    button->SetRect({100.0f, 100.0f, 100.0f, 100.0f});
     button->SetBackground(image.get());
     button->AddClickListener([]{
         std::cout << "clicked" << std::endl;
     });
-    uiContext->AddRoot(std::move(image));
+    auto font = assetManager.LoadFont({.path = "font/仿宋_GB2312.ttf"});
+    auto text = std::make_unique<eng::UIText>(font);
+    text->SetText("hello, 世界");
+    text->SetPixelSize(30.0f);
+    text->SetAlign(eng::TextAlign::Right);
+    button->SetLabel(font, "AHA!! 啊哈 --version 1.345");
+    button->SetLabelStyle({
+        .pixelSize = 30.0f,
+        .color = {1.f, 0.f, 0.f, 1.f},
+        .align = eng::TextAlign::Center, 
+    });
+    // uiContext->AddRoot(std::move(image));
     uiContext->AddRoot(std::move(button));
+    uiContext->AddRoot(std::move(text));
     
     return true;
 }

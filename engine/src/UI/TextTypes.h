@@ -23,6 +23,8 @@ struct TextStyle {
     float lineSpacing = 1.0f;      // 行距倍数，1.0 = 字体建议行高
     bool pixelSnap = true;         // 字形物理原点对齐到整数像素
     uint32_t tabSize = 4;          // 制表符按空格数展开
+
+    bool operator==(const TextStyle& other) const;
 };
 
 struct GlyphPlacement {
