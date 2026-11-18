@@ -6,6 +6,7 @@
 #include "Scene/Components/LightComponent.h"
 #include "EngineCommon.h"
 #include "Physics/PhysicsWorld.h"
+#include "UI/UIContext.h"
 
 #include <memory>
 #include <optional>
@@ -43,6 +44,8 @@ public:
         std::optional<Viewport> viewport = std::nullopt);
     void Render2D(RenderQueue& queue, const ScreenViewDesc& desc);
     // During Update, Clear is staged as an ordinary ordered command.
+    void Activate();
+    void Deactivate();
     void Clear();
 
     // During Update, a non-null result is a staged object. It is not reported
@@ -100,6 +103,15 @@ public:
     void UnregisterAudio(AudioComponent* component);
     bool SetAudioListener(AudioListenerComponent* component);
     AudioListenerComponent* GetAudioListener() const;
+
+    UIContext& GetOrCreateUIContext();
+    UIContext* GetUIContext();
+    const UIContext* GetUIContext() const;
+    UICapture ProcessUIInput(
+        const ScreenViewDesc& view, 
+        const std::vector<InputEvent>& events,
+        const WindowMetrics& metrics
+    );
 
 private:
     using ObjectContainer = std::vector<std::unique_ptr<GameObject>>;
@@ -178,11 +190,13 @@ private:
         GameObject* modelRoot);
     void CollectLightingData(LightingData& data) const;
 
+    std::unique_ptr<UIContext> m_uiContext;
     std::unique_ptr<PhysicsWorld> m_physicsWorld;
     float m_physicsAccumulator = 0.0f;
     std::vector<RegisteredBody> m_registeredBodies;
 
     std::string m_name;
+    bool m_activated = false;
     bool m_isUpdating = false;
     ObjectContainer m_objects;
     CameraComponent* m_mainCamera = nullptr;

@@ -15,14 +15,16 @@ public:
 
     void Destroy() override;
 
-    std::unique_ptr<eng::Scene> scene;
-    std::unique_ptr<eng::UIContext> uiContext;
-    Camera* camera;
     Player player;
 
 private:
-    float xoffset = 0.0f;
-    float yoffset = 0.0f;
+    bool InitSampleScene();
+    bool InitMainMenuScene();
+    void EnterSampleScene();
+
+    std::unique_ptr<eng::Scene> m_mainMenuScene;
+    std::unique_ptr<eng::Scene> m_sampleScene;
+    eng::Scene* m_activeScene = nullptr;
 };
 
 #endif

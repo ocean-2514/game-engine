@@ -232,6 +232,8 @@ bool UIContext::MapPointer(glm::vec2 position, const WindowMetrics& metrics) {
 
 UICapture UIContext::ProcessInput(const std::vector<InputEvent>& events,
     const WindowMetrics& metrics) {
+    if (!m_activated) return {};
+
     UICapture capture;
     if (m_isTraversing) return capture;
     Layout();
@@ -303,7 +305,7 @@ void UIContext::CancelPointerInput() {
 }
 
 void UIContext::Submit(RenderQueue& queue) {
-    if (m_isTraversing || !IsViewValid()) return;
+    if (m_isTraversing || !IsViewValid() || !m_activated) return;
     Layout();
     m_drawList.clear();
     {
@@ -323,6 +325,17 @@ void UIContext::Submit(RenderQueue& queue) {
         queue.EndScreenView();
     }
     m_drawList.clear();
+}
+
+void UIContext::Activate() {
+    if (m_activated) return;
+    m_activated = true;
+}
+
+void UIContext::Deactivate() {
+    if (!m_activated) return;
+    m_activated = false;
+    CancelPointerInput();
 }
 
 void UIContext::FlushPendingCommands() {

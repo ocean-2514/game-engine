@@ -30,7 +30,8 @@ Scene::~Scene() {
 }
 
 void Scene::Update(float deltaTime) {
-    if (m_isUpdating || !std::isfinite(deltaTime) || deltaTime < 0.0f) {
+    if (m_isUpdating || !std::isfinite(deltaTime) 
+        || deltaTime < 0.0f || !m_activated) {
         return;
     }
     m_isUpdating = true;
@@ -95,7 +96,7 @@ void Scene::Render(RenderQueue& queue, float aspect) {
 void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect,
     std::optional<Viewport> viewport) {
     if (!IsValidComponent(camera) || !std::isfinite(aspect) ||
-        aspect <= 0.0f) return;
+        aspect <= 0.0f || !m_activated) return;
 
     RenderInterpolate();
     struct InterpolationGuard {
@@ -125,7 +126,7 @@ void Scene::Render(RenderQueue& queue, CameraComponent* camera, float aspect,
 }
 
 void Scene::Render2D(RenderQueue& queue, const ScreenViewDesc& desc) {
-    if (!queue.BeginScreenView(desc)) {
+    if (!queue.BeginScreenView(desc) || !m_activated) {
         return;
     }
 
@@ -135,6 +136,18 @@ void Scene::Render2D(RenderQueue& queue, const ScreenViewDesc& desc) {
     }
     
     queue.EndScreenView();
+}
+
+void Scene::Activate() {
+    if (m_activated) return;
+    m_activated = true;
+}
+
+void Scene::Deactivate() {
+    if (!m_activated) return;
+    m_activated = false;
+
+    if (m_uiContext) m_uiContext->Deactivate();
 }
 
 void Scene::Clear() {
@@ -686,5 +699,32 @@ bool Scene::SetAudioListener(AudioListenerComponent* component) {
 AudioListenerComponent* Scene::GetAudioListener() const {
     return m_audioListener;
 }
+
+UIContext& Scene::GetOrCreateUIContext() {
+    if (!m_uiContext) {
+        m_uiContext = std::make_unique<UIContext>();
+        m_uiContext->Activate();
+    }
+    return *m_uiContext;
+}
+
+UIContext* Scene::GetUIContext() {
+    return m_uiContext.get();
+}
+
+const UIContext* Scene::GetUIContext() const {
+    return m_uiContext.get();
+}
+
+UICapture Scene::ProcessUIInput(
+    const ScreenViewDesc& view, 
+    const std::vector<InputEvent>& events,
+    const WindowMetrics& metrics
+) {
+    if (!m_uiContext) return {};
+    m_uiContext->SetView(view);
+    return m_uiContext->ProcessInput(events, metrics);
+}
+
 
 } // namespace eng

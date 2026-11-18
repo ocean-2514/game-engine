@@ -92,6 +92,7 @@ bool OpenGLRenderDevice::Init(const Window& window) {
         return false;
     }
 
+	glEnable(GL_MULTISAMPLE);  
     SetRenderState(RenderState{});
 
     return true;

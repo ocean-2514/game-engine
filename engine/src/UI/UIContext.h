@@ -45,6 +45,9 @@ public:
         const WindowMetrics& metrics);
     void Submit(RenderQueue& queue);
 
+    void Activate();
+    void Deactivate();
+
 private:
     struct UISlot {
         std::unique_ptr<UIElement> element;
@@ -107,6 +110,7 @@ private:
         {0, 0, 1920, 1080}};
     bool m_layoutDirty = true;
 
+    bool m_activated = false;
     bool m_isTraversing = false;
     std::vector<UICommand> m_pendingCommands;
 
